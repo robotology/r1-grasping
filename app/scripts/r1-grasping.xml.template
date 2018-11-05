@@ -22,6 +22,10 @@
             <node>pwrNode3</node>
         </module>
         <module>
+            <name>action-gateway</name>
+            <node>pwrNode3</node>
+        </module>
+        <module>
                 <name>caffeCoder</name>
                 <parameters></parameters>
                 <node>gpuNode1</node>
@@ -38,10 +42,6 @@
         <module>
                 <name>blobSelector</name>
                 <node>pwrNode3</node>
-        </module>
-        <module>
-                <name>iolReachingCalibration</name>
-                <node>pwrNode4</node>
         </module>
         <module>
                 <name>iolStateMachineHandler</name>
@@ -139,7 +139,7 @@
         <connection>
                 <from>/iolStateMachineHandler/imgClassifier:o</from>
                 <to>/himrepClassifier/img:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/icub/camcalib/left/out</from>
@@ -157,11 +157,6 @@
                 <protocol>udp</protocol>
         </connection>
         <connection>
-                <from>/motionCUT/blobs:o</from>
-                <to>/actionsRenderingEngine/left/blobs:i</to>
-                <protocol>udp</protocol>
-        </connection>
-        <connection>
                 <from>/lbpExtract/blobs:o</from>
                 <to>/iolStateMachineHandler/blobs:i</to>
                 <protocol>udp</protocol>
@@ -169,7 +164,7 @@
         <connection>
                 <from>/iolStateMachineHandler/classify:rpc</from>
                 <to>/himrepClassifier/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/depthCamera/depthImage:o</from>
@@ -189,7 +184,7 @@
         <connection>
                 <from>/iolStateMachineHandler/img:o</from>
                 <to>/iolViewer/manager/snapshot</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/imgTrack:o</from>
@@ -199,122 +194,97 @@
         <connection>
                 <from>/iolStateMachineHandler/imgLoc:o</from>
                 <to>/iolViewer/manager/localizer</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/imgHistogram:o</from>
                 <to>/iolViewer/manager/histogram</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolViewer/manager/localizer/out</from>
                 <to>/iolStateMachineHandler/histObjLocation:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/speak:o</from>
                 <to>/iSpeak</to>
-                <protocol>tcp</protocol>
-        </connection>
-        <connection>
-                <from>/iolReachingCalibration/opc</from>
-                <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
-        </connection>
-        <connection>
-                <from>/iolReachingCalibration/are</from>
-                <to>/actionsRenderingEngine/cmd:io</to>
-                <protocol>tcp</protocol>
-        </connection>
-        <connection>
-                <from>/iolStateMachineHandler/reach_calib:rpc</from>
-                <to>/iolReachingCalibration/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/motor:rpc</from>
-                <to>/actionsRenderingEngine/cmd:io</to>
-                <protocol>tcp</protocol>
-        </connection>
-        <connection>
-                <from>/iolStateMachineHandler/motor_stop:rpc</from>
-                <to>/actionsRenderingEngine/rpc</to>
-                <protocol>tcp</protocol>
-        </connection>
-        <connection>
-                <from>/actionsRenderingEngine/wbd:rpc</from>
-                <to>/wholeBodyDynamics/rpc:i</to>
-                <protocol>tcp</protocol>
+                <to>/action-gateway/cmd:io</to>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/memory:rpc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
-                <from>/actionsRenderingEngine/OPC:io</from>
+                <from>/action-gateway/opc/rpc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolHelper/opc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/speechRecognizer/recog/continuous:o</from>
                 <to>/iolStateMachineHandler/motor_stop:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/blobSelector/point:o</from>
                 <to>/iolStateMachineHandler/point:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/speechRecognizer/tts/iSpeak:o</from>
                 <to>/iSpeak</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iSpeak/emotions:o</from>
                 <to>/icub/face/emotions/in</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/himrepClassifier/img:o</from>
                 <to>/caffeCoder/img:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/caffeCoder/code:o</from>
                 <to>/himrepClassifier/features:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/himrepClassifier/features:o</from>
                 <to>/linearClassifier/features:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/linearClassifier/scores:o</from>
                 <to>/himrepClassifier/scores:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/himrepClassifier/classify:rpc</from>
                 <to>/linearClassifier/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/caffeCoder/img:o</from>
                 <to>/himrepClassifier/SIFTimg:i</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/himrepClassifier/opc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/depthCamera/depthImage:o</from>
@@ -329,6 +299,11 @@
         <connection>
                 <from>/iolStateMachineHandler/get3d:rpc</from>
                 <to>/vision3d-gateway/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/gaze/rpc</from>
+                <to>/cer_gaze-controller/rpc</to>
+                <protocol>fast_tcp</protocol>
         </connection>
 </application>

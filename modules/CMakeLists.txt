@@ -3,3 +3,4 @@
 # Authors: Ugo Pattacini <ugo.pattacini@iit.it>
 
 add_subdirectory(vision3d-gateway)
+add_subdirectory(action-gateway)
