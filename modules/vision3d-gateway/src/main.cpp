@@ -160,9 +160,26 @@ class Gateway : public RFModule
     /****************************************************************/
     bool respond(const Bottle &command, Bottle &reply) override
     {
+        reply.clear();
+
+        if(command.size()==0)
+            return false;
+
+        if (command.get(0).asString()=="quit")
+            return false;
+
         LockGuard lg(mutex);
         string cmd=command.get(0).asString();
-        if ((cmd=="Rect") && (command.size()>=5))
+
+        if (cmd=="help") {
+            reply.addVocab(Vocab::encode("many"));
+            reply.addString("Available commands are:");
+            reply.addString("- [Rect tlx tly w h step]: Given the pixels in the rectangle defined by {(tlx,tly) (tlx+w,tly+h)} (parsed by columns), the response contains the corresponding 3D points in the ROOT frame. The optional parameter step defines the sampling quantum; by default step=1.");
+            reply.addString("- [Points u_1 v_1 ... u_n v_n]: Given a list of n pixels, the response contains the corresponding 3D points in the ROOT frame.");
+            reply.addString("For more details on the commands, check the module's documentation");
+            return true;
+        }
+        else if ((cmd=="Rect") && (command.size()>=5))
         {
             int tlx=command.get(1).asInt();
             int tly=command.get(2).asInt();
@@ -186,6 +203,21 @@ class Gateway : public RFModule
                     reply.addDouble(p[1]);
                     reply.addDouble(p[2]);
                 }
+            }
+        }
+        else if ((cmd=="Points") && (command.size()>=3))
+        {
+            for (int cnt=1; cnt<command.size()-1; cnt+=2)
+            {
+                int u=command.get(cnt).asInt();
+                int v=command.get(cnt+1).asInt();
+                Vector p=getPoint3D(u,v);
+                p.push_back(1.0);
+                p=Hcam*p;
+
+                reply.addDouble(p[0]);
+                reply.addDouble(p[1]);
+                reply.addDouble(p[2]);
             }
         }
         else
