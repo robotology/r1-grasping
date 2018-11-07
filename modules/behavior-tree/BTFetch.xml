@@ -1,0 +1,12 @@
+ <root main_tree_to_execute = "MainTree" >
+     <BehaviorTree ID="MainTree">
+            <Sequence name="root">
+            <SetBlackboard key="InvPose" value="" />
+                <Fallback name="invpose">
+                    <IsInvPoseComputed/>
+                    <ComputeInvPose/>
+                </Fallback>
+            <Goto goal="${InvPose}" />
+            </Sequence>
+        </BehaviorTree>
+ </root>
