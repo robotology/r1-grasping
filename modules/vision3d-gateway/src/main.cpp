@@ -25,7 +25,6 @@ using namespace yarp::math;
 class Gateway : public RFModule
 {
     BufferedPort<ImageOf<PixelFloat>> depthPort;
-    BufferedPort<ImageOf<PixelFloat>> depthVisualPort;
     BufferedPort<Property> gazePort;
     RpcServer rpcPort;
     RpcClient camPort;
@@ -110,7 +109,6 @@ class Gateway : public RFModule
         }
 
         depthPort.open("/vision3d-gateway/depth:i");
-        depthVisualPort.open("/vision3d-gateway/depth:o");;
         gazePort.open("/vision3d-gateway/gaze/state:i");
         rpcPort.open("/vision3d-gateway/rpc");
         camPort.open("/vision3d-gateway/cam:rpc");
@@ -138,19 +136,6 @@ class Gateway : public RFModule
         {
             LockGuard lg(depthMutex);
             depth=*ptr;
-            if(depthVisualPort.getOutputCount()>0)
-            {
-                ImageOf<PixelFloat> &im = depthVisualPort.prepare();
-                im.resize(depth);
-                for(int j=0 ; j<depth.height() ; j++)
-                {
-                    for(int i=0 ; i<depth.width() ; i++)
-                    {
-                        im(i,j) = 50*depth(i,j);
-                    }
-                }
-                depthVisualPort.write();
-            }
         }
         if (Property *ptr=gazePort.read(false))
         {
@@ -246,7 +231,6 @@ class Gateway : public RFModule
     bool interruptModule() override
     {
         depthPort.interrupt();
-        depthVisualPort.interrupt();
         gazePort.interrupt();
         rpcPort.interrupt();
         camPort.interrupt();
@@ -257,7 +241,6 @@ class Gateway : public RFModule
     bool close() override
     {
         depthPort.close();
-        depthVisualPort.close();
         gazePort.close();
         rpcPort.close();
         camPort.close();
