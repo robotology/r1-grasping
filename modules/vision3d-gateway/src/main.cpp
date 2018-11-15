@@ -64,18 +64,19 @@ class Gateway : public RFModule
     Vector getPoint3D(const int u, const int v) const
     {
         Vector p(3,0.0);
-        if ((u>=0) && (u<depth.width()) && (v>=0) && (v<depth.height()))
+        if ((u>=0) && (u<depth.width()) && (v>=0) && (v<depth.height()) && (fov_h>0.0) && (fov_v>0.0))
         {
-            double f=depth.width()/(2.0*tan(fov_h*(M_PI/180.0)/2.0));
+            double f_h=depth.width()/(2.0*tan(fov_h*(M_PI/180.0)/2.0));
+            double f_v=depth.height()/(2.0*tan(fov_v*(M_PI/180.0)/2.0));
             double d=depth(u,v);
-            if ((d>0.0) && (f>0.0))
+            if ((d>0.0) && (f_h>0.0) && (f_v>0.0))
             {
                 double x=u-0.5*(depth.width()-1);
                 double y=v-0.5*(depth.height()-1);
 
                 p=d*ones(3);
-                p[0]*=x/f;
-                p[1]*=y/f;
+                p[0]*=x/f_h;
+                p[1]*=y/f_v;
             }
         }
         return p;
@@ -87,6 +88,8 @@ class Gateway : public RFModule
         // default values
         camera_configured=false;
         Hcam=eye(4,4);
+        fov_h = 0;
+        fov_v = 0;
 
         // retrieve values from config file
         Bottle &gCamera=rf.findGroup("camera");
