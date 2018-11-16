@@ -15,6 +15,8 @@
 #include <yarp/os/all.h>
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
+#include <yarp/dev/IVisualParams.h>
+#include <yarp/dev/GenericVocabs.h>
 
 using namespace std;
 using namespace yarp::os;
@@ -52,12 +54,12 @@ class Gateway : public RFModule
         if (camPort.getOutputCount()>0)
         {
             Bottle cmd,rep;   
-            cmd.addVocab(Vocab::encode("visr"));
-            cmd.addVocab(Vocab::encode("get"));
-            cmd.addVocab(Vocab::encode("intp"));
+            cmd.addVocab(VOCAB_RGB_VISUAL_PARAMS);
+            cmd.addVocab(VOCAB_GET);
+            cmd.addVocab(VOCAB_INTRINSIC_PARAM);
             if (camPort.write(cmd,rep))
             {
-                if (rep.size()>=4)
+                if (rep.size()>=4 && (rep.get(0).asVocab()==VOCAB_RGB_VISUAL_PARAMS) && (rep.get(1).asVocab()==VOCAB_INTRINSIC_PARAM) && (rep.get(2).asVocab()==VOCAB_IS))
                 {
                     const Bottle *list = rep.get(3).asList();
 
@@ -76,12 +78,12 @@ class Gateway : public RFModule
             }
 
             cmd.clear();
-            cmd.addVocab(Vocab::encode("visr"));
-            cmd.addVocab(Vocab::encode("get"));
-            cmd.addVocab(Vocab::encode("res"));
+            cmd.addVocab(VOCAB_RGB_VISUAL_PARAMS);
+            cmd.addVocab(VOCAB_GET);
+            cmd.addVocab(VOCAB_RESOLUTION);
             if (camPort.write(cmd,rep))
             {
-                if (rep.size()>=5)
+                if (rep.size()>=5 && (rep.get(0).asVocab()==VOCAB_RGB_VISUAL_PARAMS) && (rep.get(1).asVocab()==VOCAB_RESOLUTION) && (rep.get(2).asVocab()==VOCAB_IS))
                 {
                     depth.resize(rep.get(3).asDouble(), rep.get(4).asDouble());
                     camera_resolution_configured=true;
@@ -110,12 +112,12 @@ class Gateway : public RFModule
             if (!camera_fov_configured)
             {
                 cmd.clear();
-                cmd.addVocab(Vocab::encode("visr"));
-                cmd.addVocab(Vocab::encode("get"));
-                cmd.addVocab(Vocab::encode("fov"));
+                cmd.addVocab(VOCAB_RGB_VISUAL_PARAMS);
+                cmd.addVocab(VOCAB_GET);
+                cmd.addVocab(VOCAB_FOV);
                 if (camPort.write(cmd,rep))
                 {
-                    if (rep.size()>=5)
+                    if (rep.size()>=5 && (rep.get(0).asVocab()==VOCAB_RGB_VISUAL_PARAMS) && (rep.get(1).asVocab()==VOCAB_FOV) && (rep.get(2).asVocab()==VOCAB_IS))
                     {
                         fov_x=rep.get(3).asDouble();
                         fov_y=rep.get(4).asDouble();

@@ -3,7 +3,7 @@
 # Authors: Ugo Pattacini <ugo.pattacini@iit.it>
 
 project(vision3d-gateway)
-find_package(YARP 3.1.0 REQUIRED COMPONENTS OS sig math)
+find_package(YARP 3.1.0 REQUIRED COMPONENTS OS sig math dev)
 
 add_definitions(-D_USE_MATH_DEFINES)
 add_executable(${PROJECT_NAME} src/main.cpp)
