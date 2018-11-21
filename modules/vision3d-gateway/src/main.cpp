@@ -46,6 +46,7 @@ class Gateway : public RFModule
     ImageOf<PixelFloat> depth;
     bool camera_resolution_configured;
 
+    Mutex HcamMutex;
     Matrix Hcam;
 
     /****************************************************************/
@@ -346,6 +347,7 @@ class Gateway : public RFModule
                     orientation[1]=pose->get(4).asDouble();
                     orientation[2]=pose->get(5).asDouble();
                     orientation[3]=pose->get(6).asDouble();
+                    LockGuard lg(HcamMutex);
                     Hcam=axis2dcm(orientation);
                     Hcam(0,3)=pose->get(0).asDouble();
                     Hcam(1,3)=pose->get(1).asDouble();
@@ -390,6 +392,7 @@ class Gateway : public RFModule
             }
 
             LockGuard lg(depthMutex);
+            LockGuard lg2(HcamMutex);
             for (int u=tlx; u<tlx+w; u+=step)
             {
                 for (int v=tly; v<tly+h; v+=step)
@@ -407,6 +410,7 @@ class Gateway : public RFModule
         else if ((cmd=="Points") && (command.size()>=3))
         {
             LockGuard lg(depthMutex);
+            LockGuard lg2(HcamMutex);
             for (int cnt=1; cnt<command.size()-1; cnt+=2)
             {
                 int u=command.get(cnt).asInt();
