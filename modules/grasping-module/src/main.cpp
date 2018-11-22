@@ -35,25 +35,25 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     RpcClient actionGatewayPort;
 
     /****************************************************************/
-    bool getObjectPosition(VectorOf<double> &position) const
+    bool getObjectPosition(Vector &position) const
     {
         //connects to an object recognition database: sends the object name and retrieves object location
     }
 
     /****************************************************************/
-    bool getObjectPointCloud(const VectorOf<double> &position, PointCloud<DataXYZRGBA> &pointCloud) const
+    bool getObjectPointCloud(const Vector &position3D, PointCloud<DataXYZRGBA> &pointCloud) const
     {
         //connects to some vision module: sends the object position and retrieves a point cloud of the object
     }
 
     /****************************************************************/
-    bool getObjectSuperquadric() const
+    bool getObjectSuperquadric(const PointCloud<DataXYZRGBA> &pointCloud, Vector &superQuadricParameters) const
     {
         //connects to a superquadric fitting module: sends a point cloud and retrieves a superquadric
     }
 
     /****************************************************************/
-    bool getGraspingPoseCandidates() const
+    bool getGraspingPoseCandidates(Vector &superQuadricParameters, vector<Matrix> &poseCandidates) const
     {
         //connects to a grasp planner module: sends a superquadric (and additionnal constraints?) and retrieves a set of grasping pose candidates
     }
