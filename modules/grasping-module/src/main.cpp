@@ -44,6 +44,33 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     bool getObjectPointCloud(const Vector &position3D, PointCloud<DataXYZRGBA> &pointCloud) const
     {
         //connects to some vision module: sends the object position and retrieves a point cloud of the object
+
+        if(position3D.size() == 3)
+        {
+            Bottle cmd;
+            cmd.addString("get_point_cloud_from_3D_position");
+            cmd.addDouble(position3D(0));
+            cmd.addDouble(position3D(1));
+            cmd.addDouble(position3D(2));
+
+            Bottle reply;
+            pointCloudFetchPort.write(cmd, reply);
+
+            yInfo() << "getObjectPointCloud: reply size: " << reply.size();
+
+            if(!pointCloud.fromBottle(reply))
+            {
+                yError() << "getObjectPointCloud: Retrieved invalid point cloud: " << reply.toString();
+                return false;
+            }
+        }
+        else
+        {
+            yError() << "getObjectPointCloud: Invalid dimension of object position input vector";
+            return false;
+        }
+
+        return true;
     }
 
     /****************************************************************/
