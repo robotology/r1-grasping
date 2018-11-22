@@ -172,6 +172,18 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    Vector getPoint2D(const double x, const double y, const double z) const
+    {
+        Vector p(2,0.0);
+        if ((z>0.0) && (fx>0.0) && (fy>0.0))
+        {
+            p[0]=ppx + fx*x/z;
+            p[1]=ppy + fy*y/z;
+        }
+        return p;
+    }
+
+    /****************************************************************/
     bool configure(ResourceFinder &rf) override
     {
         // default values
@@ -376,6 +388,7 @@ class Gateway : public RFModule
             reply.addString("Available commands are:");
             reply.addString("- [Rect tlx tly w h step]: Given the pixels in the rectangle defined by {(tlx,tly) (tlx+w,tly+h)} (parsed by columns), the response contains the corresponding 3D points in the ROOT frame. The optional parameter step defines the sampling quantum; by default step=1.");
             reply.addString("- [Points u_1 v_1 ... u_n v_n]: Given a list of n pixels, the response contains the corresponding 3D points in the ROOT frame.");
+            reply.addString("- [cart2stereo X Y Z]: Given a world point X Y Z wrt to ROOT reference frame the response is the projection (uL vL uR vR) in the RGB image (in Left and Right images, which are the same here, for compatibility with SFM module).");
             reply.addString("For more details on the commands, check the module's documentation");
             return true;
         }
@@ -423,6 +436,25 @@ class Gateway : public RFModule
                 reply.addDouble(p[1]);
                 reply.addDouble(p[2]);
             }
+        }
+        else if ((cmd=="cart2stereo") && (command.size()>=4))
+        {
+            Vector p(4);
+
+            p[0]=command.get(1).asDouble();
+            p[1]=command.get(2).asDouble();
+            p[2]=command.get(3).asDouble();
+            p[3]=1.0;
+
+            LockGuard lg2(HcamMutex);
+            p=yarp::math::SE3inv(Hcam)*p;
+
+            Vector pImage=this->getPoint2D(p[0], p[1], p[2]);
+
+            reply.addDouble(pImage[0]);
+            reply.addDouble(pImage[1]);
+            reply.addDouble(pImage[0]);
+            reply.addDouble(pImage[1]);
         }
         else
             reply.addString("NACK");
