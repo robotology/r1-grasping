@@ -77,6 +77,23 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     bool getObjectSuperquadric(const PointCloud<DataXYZRGBA> &pointCloud, Vector &superQuadricParameters) const
     {
         //connects to a superquadric fitting module: sends a point cloud and retrieves a superquadric
+
+        Bottle reply;
+        superQuadricFetchPort.write(pointCloud, reply);
+
+        Vector superquadricTmp;
+        reply.write(superquadricTmp);
+
+        if (superquadricTmp.size() == 9)
+        {
+            superQuadricParameters = superquadricTmp;
+            return true;
+        }
+        else
+        {
+            yError() << "getObjectSuperquadric: Retrieved invalid superquadric: " << superquadricTmp.toString();
+            return false;
+        }
     }
 
     /****************************************************************/
