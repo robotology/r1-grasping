@@ -35,7 +35,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     RpcClient actionGatewayPort;
 
     /****************************************************************/
-    bool getObjectPosition(Vector &position) const
+    bool getObjectPosition(const string &objectName, Vector &position) const
     {
         //connects to an object recognition database: sends the object name and retrieves object location
     }
@@ -97,19 +97,19 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool getGraspingPoseCandidates(Vector &superQuadricParameters, vector<Matrix> &poseCandidates) const
+    bool getGraspingPoseCandidates(const Vector &superQuadricParameters, vector<Matrix> &poseCandidates) const
     {
         //connects to a grasp planner module: sends a superquadric (and additionnal constraints?) and retrieves a set of grasping pose candidates
     }
 
     /****************************************************************/
-    bool getFinalGraspingPose() const
+    bool getFinalGraspingPose(const vector<Matrix> &poseCandidates, Matrix &finalGraspingPose) const
     {
         //connects to robot kinematic module: sends a set of grasping pose candidates and retrieves the best grasping pose
     }
 
     /****************************************************************/
-    bool goToGraspingPose() const
+    bool goToGraspingPose(const Matrix &finalGraspingPose) const
     {
         //connects to a robot kinematic module: sends a grasping pose and retrieves a boolean once the pose is reached
     }
@@ -121,9 +121,79 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool serviceGraspObject(double x, double y, double z)
+    bool serviceGraspObject(const string &objectName)
     {
-        yInfo() << this->getName() << ": receive instruction to grasp object at " << x << " " << y << " " << z;
+        // perform the full grasping of an object with a given name
+
+        yInfo() << this->getName() << ": receive instruction to grasp object:" << objectName;
+
+        Vector position3D;
+        if(!this->getObjectPosition(objectName, position3D))
+        {
+            yError()<<"serviceGraspObject: getObjectPosition failed";
+            return false;
+        }
+
+        if(!this->serviceGraspObjectAtPosition(position3D[0], position3D[1], position3D[2]))
+        {
+            yError()<<"serviceGraspObject: serviceGraspObjectAtPosition failed";
+            return false;
+        }
+
+        return true;
+    }
+
+    /****************************************************************/
+    bool serviceGraspObjectAtPosition(double x, double y, double z)
+    {
+        // perform the full grasping of an object at a given 3D position
+
+        yInfo() << this->getName() << ": receive instruction to grasp object at" << x << y << z;
+
+        Vector position3D(3);
+        position3D[0]=x;
+        position3D[1]=y;
+        position3D[2]=z;
+
+        PointCloud<DataXYZRGBA> pointCloud;
+        if(!this->getObjectPointCloud(position3D, pointCloud))
+        {
+            yError()<<"serviceGraspObjectAtPosition: getObjectPointCloud failed";
+            return false;
+        }
+
+        Vector superQuadricParameters;
+        if(!this->getObjectSuperquadric(pointCloud, superQuadricParameters))
+        {
+            yError()<<"serviceGraspObjectAtPosition: getObjectSuperquadric failed";
+            return false;
+        }
+
+        vector<Matrix> poseCandidates;
+        if(!this->getGraspingPoseCandidates(superQuadricParameters, poseCandidates))
+        {
+            yError()<<"serviceGraspObjectAtPosition: getGraspingPoseCandidates failed";
+            return false;
+        }
+
+        Matrix finalGraspingPose;
+        if(!this->getFinalGraspingPose(poseCandidates, finalGraspingPose))
+        {
+            yError()<<"serviceGraspObjectAtPosition: getFinalGraspingPose failed";
+            return false;
+        }
+
+        if(!this->goToGraspingPose(finalGraspingPose))
+        {
+            yError()<<"serviceGraspObjectAtPosition: goToGraspingPose failed";
+            return false;
+        }
+
+        if(!this->graspObject())
+        {
+            yError()<<"serviceGraspObjectAtPosition: graspObject failed";
+            return false;
+        }
 
         return true;
     }

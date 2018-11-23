@@ -21,7 +21,8 @@ class GraspingModule_IDL;
 class GraspingModule_IDL : public yarp::os::Wire {
 public:
   GraspingModule_IDL();
-  virtual bool serviceGraspObject(const double x, const double y, const double z);
+  virtual bool serviceGraspObject(const std::string& objectName);
+  virtual bool serviceGraspObjectAtPosition(const double x, const double y, const double z);
   virtual bool read(yarp::os::ConnectionReader& connection) override;
   virtual std::vector<std::string> help(const std::string& functionName="--all");
 };
