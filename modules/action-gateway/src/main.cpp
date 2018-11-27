@@ -40,6 +40,8 @@ class Gateway : public RFModule
     double period;
     int ack,nack;
     bool interrupting;
+    Vector pose_latch;
+    string part_latch;
 
     struct {
         vector<double> head;
@@ -156,7 +158,7 @@ class Gateway : public RFModule
             ipos_torso->setRefSpeeds(spds.data());
             ipos_torso->positionMove(home.torso.data());
         }
-        if (!home.left_arm.empty() && (part.empty() || (part=="all") || (part=="left")))
+        if (!home.left_arm.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_arm")))
         {
             vector<int> modes(home.left_arm.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.left_arm.size(),numeric_limits<double>::max());
@@ -168,7 +170,7 @@ class Gateway : public RFModule
             ipos_left_arm->setRefSpeeds(spds.data());
             ipos_left_arm->positionMove(home.left_arm.data());
         }
-        if (!home.left_hand.empty() && (part.empty() || (part=="all") || (part=="left")))
+        if (!home.left_hand.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_hand")))
         {
             vector<int> modes(home.left_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.left_hand.size(),numeric_limits<double>::max());
@@ -179,7 +181,7 @@ class Gateway : public RFModule
             ipos_left_hand->setRefSpeeds(spds.data());
             ipos_left_hand->positionMove(home.left_hand.data());
         }
-        if (!home.right_arm.empty() && (part.empty() || (part=="all") || (part=="right")))
+        if (!home.right_arm.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_arm")))
         {
             vector<int> modes(home.right_arm.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_arm.size(),numeric_limits<double>::max());
@@ -191,7 +193,7 @@ class Gateway : public RFModule
             ipos_right_arm->setRefSpeeds(spds.data());
             ipos_right_arm->positionMove(home.right_arm.data());
         }
-        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right")))
+        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="left_hand")))
         {
             vector<int> modes(home.right_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_hand.size(),numeric_limits<double>::max());
@@ -713,7 +715,20 @@ class Gateway : public RFModule
             {
                 part=command.get(3).asString();
             }
+
             ok=grasp(pose,approach,part);
+            pose_latch=pose;
+            part_latch=part;
+        }
+        else if (cmd==Vocab::encode("drop"))
+        {
+            if (reach(pose_latch,part_latch))
+            {
+                if (goHome(part_latch+"_hand"))
+                {
+                    ok=goHome(part_latch);
+                }
+            }
         }
 
         reply.addVocab(ok?ack:nack);
