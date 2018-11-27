@@ -11,7 +11,6 @@
  */
 
 #include <cstdlib>
-#include <memory>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -84,7 +83,7 @@ class Gateway : public RFModule
             size_t len=std::min(v.size(),b->size());
             for (size_t i=0; i<len; i++)
             {
-                v.push_back(b->get(i).asDouble());
+                v[i]=b->get(i).asDouble();
             }
         }
         return !v.empty();
@@ -111,11 +110,11 @@ class Gateway : public RFModule
     {
         int nAxes;
         ipos->getAxes(&nAxes);
-        unique_ptr<bool> done=unique_ptr<bool>(new bool[nAxes]);
-        ipos->checkMotionDone(done.get());
         for (int i=0; i<nAxes; i++)
         {
-            if (!done.get()[i])
+            bool done;
+            ipos->checkMotionDone(i,&done);
+            if (!done)
             {
                 return false;
             }
@@ -127,7 +126,9 @@ class Gateway : public RFModule
     bool goHome(const string &part)
     {
         if (!part.empty() && (part!="all") && (part!="head") && (part!="gaze") &&
-            (part!="torso") && (part!="left") && (part!="right"))
+            (part!="torso") && (part!="left") && (part!="right") &&
+            (part!="left_arm") && (part!="left_hand") &&
+            (part!="right_arm") && (part!="right_hand"))
         {
             yError()<<"Unrecognized part requested for homing";
             return false;
@@ -569,21 +570,6 @@ class Gateway : public RFModule
     /****************************************************************/
     bool configure(ResourceFinder &rf) override
     {
-        drivers=vector<PolyDriver>(6);
-        bool drivers_ok=true;
-        drivers_ok&=openDriver(drivers[0],"head",imod_head,ipos_head);
-        drivers_ok&=openDriver(drivers[1],"torso",imod_torso,ipos_torso);
-        drivers_ok&=openDriver(drivers[2],"left_arm",imod_left_arm,ipos_left_arm);
-        drivers_ok&=openDriver(drivers[3],"left_hand",imod_left_hand,ipos_left_hand);
-        drivers_ok&=openDriver(drivers[4],"right_arm",imod_right_arm,ipos_right_arm);
-        drivers_ok&=openDriver(drivers[5],"right_hand",imod_right_hand,ipos_right_hand);
-        if (!drivers_ok)
-        {
-            yError()<<"Unable to talk to device drivers";
-            close();
-            return false;
-        }
-
         // default values
         robot="cer";
         period=0.01;
@@ -597,6 +583,21 @@ class Gateway : public RFModule
         {
             robot=gGeneral.check("robot",Value(robot)).asString();
             period=gGeneral.check("period",Value(period)).asDouble();
+        }
+
+        drivers=vector<PolyDriver>(6);
+        bool drivers_ok=true;
+        drivers_ok&=openDriver(drivers[0],"head",imod_head,ipos_head);
+        drivers_ok&=openDriver(drivers[1],"torso",imod_torso,ipos_torso);
+        drivers_ok&=openDriver(drivers[2],"left_arm",imod_left_arm,ipos_left_arm);
+        drivers_ok&=openDriver(drivers[3],"left_hand",imod_left_hand,ipos_left_hand);
+        drivers_ok&=openDriver(drivers[4],"right_arm",imod_right_arm,ipos_right_arm);
+        drivers_ok&=openDriver(drivers[5],"right_hand",imod_right_hand,ipos_right_hand);
+        if (!drivers_ok)
+        {
+            yError()<<"Unable to talk to device drivers";
+            close();
+            return false;
         }
 
         Bottle &gHome=rf.findGroup("home");
@@ -697,18 +698,24 @@ class Gateway : public RFModule
         {
             Vector pose,approach;
             string part="select";
-            if (Bottle *b=command.get(1).asList())
+            if (Bottle *b1=command.get(1).asList())
             {
-                for (size_t i=1; i<b->size(); i++)
+                for (size_t i=1; i<b1->size(); i++)
                 {
-                    pose.push_back(b->get(i).asDouble());
+                    pose.push_back(b1->get(i).asDouble());
                 }
             }
-            if (Bottle *b=command.get(2).asList())
+            if (Bottle *b1=command.get(2).asList())
             {
-                for (size_t i=1; i<b->size(); i++)
+                if (b1->size()>=2)
                 {
-                    approach.push_back(b->get(i).asDouble());
+                    if (Bottle *b2=b1->get(1).asList())
+                    {
+                        for (size_t i=0; i<b2->size(); i++)
+                        {
+                            approach.push_back(b2->get(i).asDouble());
+                        }
+                    }
                 }
             }
             if (command.size()>=4)
