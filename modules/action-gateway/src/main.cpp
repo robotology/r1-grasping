@@ -33,6 +33,8 @@ class Gateway : public RFModule
     RpcServer cmdPort;
     RpcClient opcPort;
     RpcClient gazePort;
+    RpcClient reachLPort;
+    RpcClient reachRPort;
 
     string robot;
     double period;
@@ -49,6 +51,12 @@ class Gateway : public RFModule
         double speed_angular;
         double speed_linear;
     } home;
+
+    struct {
+        string mode;
+        double torso_heave;
+        double lower_arm_heave;
+    } reaching;
 
     vector<PolyDriver> drivers;
     IControlMode     *imod_head,*imod_torso,*imod_left_arm,*imod_left_hand,
@@ -207,20 +215,63 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool stopCartesian()
+    bool stopCartesianHelper(RpcClient &port)
     {
-        bool ret=false;
-        if (gazePort.getOutputCount()>0)
+        if (port.getOutputCount()>0)
         {
             Bottle cmd,rep;
             cmd.addVocab(Vocab::encode("stop"));
-            if (gazePort.write(cmd,rep))
+            if (port.write(cmd,rep))
             {
-                ret=(rep.get(0).asVocab()==ack);
+                if (rep.get(0).asVocab()==ack)
+                {
+                    return true;
+                }
             }
         }
+        return false;
+    }
 
-        yInfo()<<"Cartesian movements stopped";
+    /****************************************************************/
+    bool stopCartesian(const string &part="all")
+    {
+        bool ret=true;
+        if ((part=="all") || (part=="gaze") || (part=="head"))
+        {
+            if (stopCartesianHelper(gazePort))
+            {
+                yInfo()<<"Gaze movements stopped";
+            }
+            else
+            {
+                yWarning()<<"Problems detected while stopping gaze movements";
+                ret=false;
+            }
+        }
+        if ((part=="all") || (part=="left"))
+        {
+            if (stopCartesianHelper(reachLPort))
+            {
+                yInfo()<<"Left-arm movements stopped";
+            }
+            else
+            {
+                yWarning()<<"Problems detected while stopping left-arm movements";
+                ret=false;
+            }
+        }
+        if ((part=="all") || (part=="right"))
+        {
+            if (stopCartesianHelper(reachRPort))
+            {
+                yInfo()<<"Right-arm movements stopped";
+            }
+            else
+            {
+                yWarning()<<"Problems detected while stopping right-arm movements";
+                ret=false;
+            }
+        }
         return ret;
     }
 
@@ -315,6 +366,89 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    bool grasp(const Vector &pose, const Vector &approach,
+               const string &part="select")
+    {
+        if ((pose.length()<7) || (approach.length()<4))
+        {
+            yError()<<"Too few parameters for enabling grasp";
+            return false;
+        }
+
+        RpcClient *port=nullptr;
+        if (part=="left")
+        {
+            port=&reachLPort;
+        }
+        else if (part=="right")
+        {
+            port=&reachRPort;
+        }
+        else
+        {
+            port=&(pose[1]>0.0?reachLPort:reachRPort);
+        }
+
+        Vector pose_approach=pose;
+        pose_approach[0]+=approach[0];
+        pose_approach[1]+=approach[1];
+        pose_approach[2]+=approach[2];
+
+        Bottle params;
+        Bottle &params_info1=params.addList();
+        params_info1.addString("parameters");
+        Bottle &params_info2=params_info1.addList();
+
+        Bottle mode=params_info2.addList();
+        mode.addString("mode");
+        mode.addString(reaching.mode);
+
+        Bottle &torso_heave=params_info2.addList();
+        torso_heave.addString("torso_heave");
+        torso_heave.addDouble(reaching.torso_heave);
+
+        Bottle &lower_arm_heave=params_info2.addList();
+        lower_arm_heave.addString("lower_arm_heave");
+        lower_arm_heave.addDouble(reaching.lower_arm_heave);
+
+        vector<Bottle> targets;
+        Bottle target1;
+        Bottle &target1_info=target1.addList();
+        target1_info.addString("target");
+        target1_info.addList().read(pose_approach);
+        targets.push_back(target1);
+
+        Bottle target2;
+        Bottle &target2_info=target2.addList();
+        target2_info.addString("target");
+        target2_info.addList().read(pose);
+        targets.push_back(target2);
+
+        bool ok;
+        for (auto &t:targets)
+        {
+            ok=false;
+            Bottle cmd,rep;
+            cmd.addVocab(Vocab::encode("go"));
+            Bottle &cmd_info=cmd.addList();
+            cmd_info.append(params);
+            cmd_info.append(t);
+            if (port->write(cmd,rep))
+            {
+                if (rep.get(0).asVocab()==ack)
+                {
+                    ok=waitUntilDone(*port);
+                    if (!ok)
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+        return ok;
+    }
+
+    /****************************************************************/
     bool look(const Property &prop)
     {
         bool ret=false;
@@ -333,14 +467,24 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    void waitUntilFixating()
+    bool waitUntilDone(RpcClient &port)
     {
-        while (!interrupting && (gazePort.getOutputCount()>0))
+        string part="Gaze";
+        if (&port==&reachLPort)
+        {
+            part="Left-arm";
+        }
+        else if (&port==&reachRPort)
+        {
+            part="Right-arm";
+        }
+
+        while (!interrupting && (port.getOutputCount()>0))
         {
             Bottle cmd,rep;
             cmd.addVocab(Vocab::encode("get"));
             cmd.addString("done");
-            if (gazePort.write(cmd,rep))
+            if (port.write(cmd,rep))
             {
                 if (rep.get(0).asVocab()==ack)
                 {
@@ -354,7 +498,8 @@ class Gateway : public RFModule
             }
             Time::delay(std::min(10.0*period,1.0));
         }
-        yInfo()<<"Attained fixation";
+        yInfo()<<part<<"movements complete";
+        return (!interrupting);
     }
 
     /****************************************************************/
@@ -399,13 +544,23 @@ class Gateway : public RFModule
             getHomeInfo(gHome,"left_hand",home.left_hand,ipos_left_hand);
             getHomeInfo(gHome,"right_arm",home.right_arm,ipos_right_arm);
             getHomeInfo(gHome,"right_hand",home.right_hand,ipos_right_hand);
-            home.speed_angular=gHome.check("speed-angular",Value(10.0)).asDouble();
-            home.speed_linear=gHome.check("speed-linear",Value(0.01)).asDouble();
+            home.speed_angular=gHome.check("speed_angular",Value(10.0)).asDouble();
+            home.speed_linear=gHome.check("speed_linear",Value(0.01)).asDouble();
+        }
+
+        Bottle &gReaching=rf.findGroup("reaching");
+        if (!gReaching.isNull())
+        {
+            reaching.mode=gReaching.check("mode",Value("full_pose+no_torso_no_heave")).asString();
+            reaching.torso_heave=gReaching.check("torso_heave",Value(0.1)).asDouble();
+            reaching.lower_arm_heave=gReaching.check("lower_arm_heave",Value(0.05)).asDouble();
         }
 
         cmdPort.open("/action-gateway/cmd:io");
         opcPort.open("/action-gateway/opc/rpc");
         gazePort.open("/action-gateway/gaze/rpc");
+        reachLPort.open("/action-gateway/reach/left/rpc");
+        reachRPort.open("/action-gateway/reach/right/rpc");
 
         attach(cmdPort);
         return true;
@@ -466,9 +621,33 @@ class Gateway : public RFModule
             {
                 if (command.get(2).asString()=="wait")
                 {
-                    waitUntilFixating();
+                    waitUntilDone(gazePort);
                 }
             }
+        }
+        else if ((cmd==Vocab::encode("grasp")) && (command.size()>=3))
+        {
+            Vector pose,approach;
+            string part="select";
+            if (Bottle *b=command.get(1).asList())
+            {
+                for (size_t i=1; i<b->size(); i++)
+                {
+                    pose.push_back(b->get(i).asDouble());
+                }
+            }
+            if (Bottle *b=command.get(2).asList())
+            {
+                for (size_t i=1; i<b->size(); i++)
+                {
+                    approach.push_back(b->get(i).asDouble());
+                }
+            }
+            if (command.size()>=4)
+            {
+                part=command.get(3).asString();
+            }
+            ok=grasp(pose,approach,part);
         }
 
         reply.addVocab(ok?ack:nack);
@@ -496,6 +675,14 @@ class Gateway : public RFModule
         if (gazePort.asPort().isOpen())
         {
             gazePort.close();
+        }
+        if (reachLPort.asPort().isOpen())
+        {
+            reachLPort.close();
+        }
+        if (reachRPort.asPort().isOpen())
+        {
+            reachRPort.close();
         }
         for (auto &d:drivers)
         {
