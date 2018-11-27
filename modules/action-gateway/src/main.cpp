@@ -369,6 +369,24 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    bool look(const Property &prop)
+    {
+        bool ret=false;
+        if (gazePort.getOutputCount()>0)
+        {
+            Bottle cmd,rep;
+            cmd.addVocab(Vocab::encode("look"));
+            cmd.addList().read(prop);
+            if (gazePort.write(cmd,rep))
+            {
+                ret=(rep.get(0).asVocab()==ack);
+            }
+            yInfo()<<cmd.toString();
+        }
+        return ret;
+    }
+
+    /****************************************************************/
     bool closeHand(const string &part)
     {
         vector<double> *hand=nullptr;
@@ -420,26 +438,20 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool grasp(const Vector &pose, const Vector &approach,
-               const string &part="select")
+    bool reach(const Vector &pose, const string &part="select")
     {
-        if ((pose.length()<7) || (approach.length()<4))
+        if (pose.length()<7)
         {
-            yError()<<"Too few parameters for enabling grasp";
+            yError()<<"Too few parameters given for reaching";
             return false;
         }
 
         string part_=part;
-        if ((part!="left") && (part_!="right"))
+        if ((part_!="left") && (part_!="right"))
         {
             part_=(pose[1]>0.0?"left":"right");
         }
         RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
-
-        Vector pose_approach=pose;
-        pose_approach[0]+=approach[0];
-        pose_approach[1]+=approach[1];
-        pose_approach[2]+=approach[2];
 
         Bottle params;
         Bottle &params_info1=params.addList();
@@ -458,63 +470,56 @@ class Gateway : public RFModule
         lower_arm_heave.addString("lower_arm_heave");
         lower_arm_heave.addDouble(grasping.lower_arm_heave);
 
-        vector<Bottle> targets;
-        Bottle target1;
-        Bottle &target1_info=target1.addList();
-        target1_info.addString("target");
-        target1_info.addList().read(pose_approach);
-        targets.push_back(target1);
+        Bottle target;
+        Bottle &target_info=target.addList();
+        target_info.addString("target");
+        target_info.addList().read(pose);
 
-        Bottle target2;
-        Bottle &target2_info=target2.addList();
-        target2_info.addString("target");
-        target2_info.addList().read(pose);
-        targets.push_back(target2);
-
-        bool ok;
-        for (auto &t:targets)
+        Bottle cmd,rep;
+        cmd.addVocab(Vocab::encode("go"));
+        Bottle &cmd_info=cmd.addList();
+        cmd_info.append(params);
+        cmd_info.append(target);
+        if (port->write(cmd,rep))
         {
-            ok=false;
-            Bottle cmd,rep;
-            cmd.addVocab(Vocab::encode("go"));
-            Bottle &cmd_info=cmd.addList();
-            cmd_info.append(params);
-            cmd_info.append(t);
-            if (port->write(cmd,rep))
+            yInfo()<<cmd.toString();
+            if (rep.get(0).asVocab()==ack)
             {
-                if (rep.get(0).asVocab()==ack)
-                {
-                    ok=waitUntilDone(*port);
-                    if (!ok)
-                    {
-                        break;
-                    }
-                }
+                return waitUntilDone(*port);
             }
         }
-        if (ok)
-        {
-            ok=closeHand(part_);
-        }
-        return ok;
+        return false;
     }
 
     /****************************************************************/
-    bool look(const Property &prop)
+    bool grasp(const Vector &pose, const Vector &approach,
+               const string &part="select")
     {
-        bool ret=false;
-        if (gazePort.getOutputCount()>0)
+        if ((pose.length()<7) || (approach.length()<4))
         {
-            Bottle cmd,rep;
-            cmd.addVocab(Vocab::encode("look"));
-            cmd.addList().read(prop);
-            if (gazePort.write(cmd,rep))
-            {
-                ret=(rep.get(0).asVocab()==ack);
-            }
-            yInfo()<<cmd.toString();
+            yError()<<"Too few parameters given for grasping";
+            return false;
         }
-        return ret;
+
+        string part_=part;
+        if ((part_!="left") && (part_!="right"))
+        {
+            part_=(pose[1]>0.0?"left":"right");
+        }
+
+        Vector pose_approach=pose;
+        pose_approach[0]+=approach[0];
+        pose_approach[1]+=approach[1];
+        pose_approach[2]+=approach[2];
+
+        if (reach(pose_approach,part_))
+        {
+            if (reach(pose,part_))
+            {
+                return closeHand(part_);
+            }
+        }
+        return false;
     }
 
     /****************************************************************/
