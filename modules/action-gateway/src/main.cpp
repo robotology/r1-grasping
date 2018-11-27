@@ -59,6 +59,7 @@ class Gateway : public RFModule
         vector<double> left_hand;
         vector<double> right_hand;
         double speed_angular;
+        double lift;
     } grasping;
 
     vector<PolyDriver> drivers;
@@ -516,7 +517,12 @@ class Gateway : public RFModule
         {
             if (reach(pose,part_))
             {
-                return closeHand(part_);
+                if (closeHand(part_))
+                {
+                    Vector pose_lift=pose;
+                    pose_lift[2]+=grasping.lift;
+                    return reach(pose_lift,part_);
+                }
             }
         }
         return false;
@@ -613,6 +619,7 @@ class Gateway : public RFModule
             getVectorInfo(gGrasping,"left_hand",grasping.left_hand,ipos_left_hand);
             getVectorInfo(gGrasping,"right_hand",grasping.right_hand,ipos_right_hand);
             grasping.speed_angular=gGrasping.check("speed_angular",Value(10.0)).asDouble();
+            grasping.lift=gGrasping.check("lift",Value(0.1)).asDouble();
         }
 
         cmdPort.open("/action-gateway/cmd:io");
