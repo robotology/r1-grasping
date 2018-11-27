@@ -56,7 +56,10 @@ class Gateway : public RFModule
         string mode;
         double torso_heave;
         double lower_arm_heave;
-    } reaching;
+        vector<double> left_hand;
+        vector<double> right_hand;
+        double speed_angular;
+    } grasping;
 
     vector<PolyDriver> drivers;
     IControlMode     *imod_head,*imod_torso,*imod_left_arm,*imod_left_hand,
@@ -65,8 +68,8 @@ class Gateway : public RFModule
                      *ipos_right_arm,*ipos_right_hand;
 
     /****************************************************************/
-    bool getHomeInfo(const Bottle &opt, const string &part, vector<double> &v,
-                     IPositionControl *ipos)
+    bool getVectorInfo(const Bottle &opt, const string &part, vector<double> &v,
+                       IPositionControl *ipos)
     {
         v.clear();
         if (Bottle *b=opt.find(part).asList())
@@ -150,7 +153,7 @@ class Gateway : public RFModule
             imod_torso->setControlModes(modes.data());
             ipos_torso->setRefAccelerations(accs.data());
             ipos_torso->setRefSpeeds(spds.data());
-            ipos_torso->positionMove(home.head.data());
+            ipos_torso->positionMove(home.torso.data());
         }
         if (!home.left_arm.empty() && (part.empty() || (part=="all") || (part=="left")))
         {
@@ -162,7 +165,7 @@ class Gateway : public RFModule
             imod_left_arm->setControlModes(modes.data());
             ipos_left_arm->setRefAccelerations(accs.data());
             ipos_left_arm->setRefSpeeds(spds.data());
-            ipos_left_arm->positionMove(home.head.data());
+            ipos_left_arm->positionMove(home.left_arm.data());
         }
         if (!home.left_hand.empty() && (part.empty() || (part=="all") || (part=="left")))
         {
@@ -173,7 +176,7 @@ class Gateway : public RFModule
             imod_left_hand->setControlModes(modes.data());
             ipos_left_hand->setRefAccelerations(accs.data());
             ipos_left_hand->setRefSpeeds(spds.data());
-            ipos_left_hand->positionMove(home.head.data());
+            ipos_left_hand->positionMove(home.left_hand.data());
         }
         if (!home.right_arm.empty() && (part.empty() || (part=="all") || (part=="right")))
         {
@@ -185,7 +188,7 @@ class Gateway : public RFModule
             imod_right_arm->setControlModes(modes.data());
             ipos_right_arm->setRefAccelerations(accs.data());
             ipos_right_arm->setRefSpeeds(spds.data());
-            ipos_right_arm->positionMove(home.head.data());
+            ipos_right_arm->positionMove(home.right_arm.data());
         }
         if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right")))
         {
@@ -196,10 +199,10 @@ class Gateway : public RFModule
             imod_right_hand->setControlModes(modes.data());
             ipos_right_hand->setRefAccelerations(accs.data());
             ipos_right_hand->setRefSpeeds(spds.data());
-            ipos_right_hand->positionMove(home.head.data());
+            ipos_right_hand->positionMove(home.right_hand.data());
         }
 
-        while (true)
+        while (!interrupting)
         {
             if (checkMotionDonePart(ipos_head) && checkMotionDonePart(ipos_torso) &&
                 checkMotionDonePart(ipos_left_arm) && checkMotionDonePart(ipos_left_hand) &&
@@ -210,7 +213,7 @@ class Gateway : public RFModule
             Time::delay(1.0);
         }
 
-        yInfo()<<"Homing"<<part<<"concluded";
+        yInfo()<<"Homing"<<part<<"complete";
         return true;
     }
 
@@ -366,6 +369,57 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    bool closeHand(const string &part)
+    {
+        vector<double> *hand=nullptr;
+        IPositionControl *ipos=nullptr;
+        IControlMode *imod=nullptr;
+
+        if (part=="left")
+        {
+            hand=&grasping.left_hand;
+            imod=imod_left_hand;
+            ipos=ipos_left_hand;
+        }
+        else if (part=="right")
+        {
+            hand=&grasping.right_hand;
+            imod=imod_right_hand;
+            ipos=ipos_right_hand;
+        }
+        else
+        {
+            yError()<<"Unrecognized hand";
+            return false;
+        }
+
+        yInfo()<<"Start closing hand"<<part;
+        if (!hand->empty())
+        {
+            vector<int> modes(hand->size(),VOCAB_CM_POSITION);
+            vector<double> accs(hand->size(),numeric_limits<double>::max());
+            vector<double> spds(hand->size(),grasping.speed_angular);
+
+            imod->setControlModes(modes.data());
+            ipos->setRefAccelerations(accs.data());
+            ipos->setRefSpeeds(spds.data());
+            ipos->positionMove(hand->data());
+        }
+
+        while (!interrupting)
+        {
+            if (checkMotionDonePart(ipos))
+            {
+                break;
+            }
+            Time::delay(1.0);
+        }
+
+        yInfo()<<"Closing hand"<<part<<"complete";
+        return true;
+    }
+
+    /****************************************************************/
     bool grasp(const Vector &pose, const Vector &approach,
                const string &part="select")
     {
@@ -375,19 +429,12 @@ class Gateway : public RFModule
             return false;
         }
 
-        RpcClient *port=nullptr;
-        if (part=="left")
+        string part_=part;
+        if ((part!="left") && (part_!="right"))
         {
-            port=&reachLPort;
+            part_=(pose[1]>0.0?"left":"right");
         }
-        else if (part=="right")
-        {
-            port=&reachRPort;
-        }
-        else
-        {
-            port=&(pose[1]>0.0?reachLPort:reachRPort);
-        }
+        RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
 
         Vector pose_approach=pose;
         pose_approach[0]+=approach[0];
@@ -401,15 +448,15 @@ class Gateway : public RFModule
 
         Bottle mode=params_info2.addList();
         mode.addString("mode");
-        mode.addString(reaching.mode);
+        mode.addString(grasping.mode);
 
         Bottle &torso_heave=params_info2.addList();
         torso_heave.addString("torso_heave");
-        torso_heave.addDouble(reaching.torso_heave);
+        torso_heave.addDouble(grasping.torso_heave);
 
         Bottle &lower_arm_heave=params_info2.addList();
         lower_arm_heave.addString("lower_arm_heave");
-        lower_arm_heave.addDouble(reaching.lower_arm_heave);
+        lower_arm_heave.addDouble(grasping.lower_arm_heave);
 
         vector<Bottle> targets;
         Bottle target1;
@@ -444,6 +491,10 @@ class Gateway : public RFModule
                     }
                 }
             }
+        }
+        if (ok)
+        {
+            ok=closeHand(part_);
         }
         return ok;
     }
@@ -538,22 +589,25 @@ class Gateway : public RFModule
         Bottle &gHome=rf.findGroup("home");
         if (!gHome.isNull())
         {
-            getHomeInfo(gHome,"head",home.head,ipos_head);
-            getHomeInfo(gHome,"torso",home.torso,ipos_torso);
-            getHomeInfo(gHome,"left_arm",home.left_arm,ipos_left_arm);
-            getHomeInfo(gHome,"left_hand",home.left_hand,ipos_left_hand);
-            getHomeInfo(gHome,"right_arm",home.right_arm,ipos_right_arm);
-            getHomeInfo(gHome,"right_hand",home.right_hand,ipos_right_hand);
+            getVectorInfo(gHome,"head",home.head,ipos_head);
+            getVectorInfo(gHome,"torso",home.torso,ipos_torso);
+            getVectorInfo(gHome,"left_arm",home.left_arm,ipos_left_arm);
+            getVectorInfo(gHome,"left_hand",home.left_hand,ipos_left_hand);
+            getVectorInfo(gHome,"right_arm",home.right_arm,ipos_right_arm);
+            getVectorInfo(gHome,"right_hand",home.right_hand,ipos_right_hand);
             home.speed_angular=gHome.check("speed_angular",Value(10.0)).asDouble();
             home.speed_linear=gHome.check("speed_linear",Value(0.01)).asDouble();
         }
 
-        Bottle &gReaching=rf.findGroup("reaching");
-        if (!gReaching.isNull())
+        Bottle &gGrasping=rf.findGroup("grasping");
+        if (!gGrasping.isNull())
         {
-            reaching.mode=gReaching.check("mode",Value("full_pose+no_torso_no_heave")).asString();
-            reaching.torso_heave=gReaching.check("torso_heave",Value(0.1)).asDouble();
-            reaching.lower_arm_heave=gReaching.check("lower_arm_heave",Value(0.05)).asDouble();
+            grasping.mode=gGrasping.check("mode",Value("full_pose+no_torso_no_heave")).asString();
+            grasping.torso_heave=gGrasping.check("torso_heave",Value(0.1)).asDouble();
+            grasping.lower_arm_heave=gGrasping.check("lower_arm_heave",Value(0.05)).asDouble();
+            getVectorInfo(gGrasping,"left_hand",grasping.left_hand,ipos_left_hand);
+            getVectorInfo(gGrasping,"right_hand",grasping.right_hand,ipos_right_hand);
+            grasping.speed_angular=gGrasping.check("speed_angular",Value(10.0)).asDouble();
         }
 
         cmdPort.open("/action-gateway/cmd:io");
