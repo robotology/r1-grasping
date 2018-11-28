@@ -196,15 +196,50 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool goToGraspingPose(const Vector &finalGraspingPose) const
+    bool performGrasp(const Vector &finalGraspingPose, bool useRightHand) const
     {
-        //connects to a robot kinematic module: sends a grasping pose and retrieves a boolean once the pose is reached
-    }
+        //connects to a robot kinematic module: sends a grasping pose and retrieves a boolean once the object is grasped
 
-    /****************************************************************/
-    bool graspObject() const
-    {
-        //connects to robot kinematic module: sends a command to grasp an object (close the hand) and retrieves a boolean once the object is grasped
+        //  communication with actionRenderingEngine/cmd:io
+        //  grasp ("cartesian" x y z gx gy gz theta) ("approach" (-0.05 0 +-0.05 0.0)) "left"/"right"
+
+        Bottle command;
+
+        command.addString("grasp");
+        Bottle &ptr = command.addList();
+        ptr.addString("cartesian");
+        ptr.addDouble(finalGraspingPose(0));
+        ptr.addDouble(finalGraspingPose(1));
+        ptr.addDouble(finalGraspingPose(2));
+        ptr.addDouble(finalGraspingPose(3));
+        ptr.addDouble(finalGraspingPose(4));
+        ptr.addDouble(finalGraspingPose(5));
+        ptr.addDouble(finalGraspingPose(6));
+
+        Bottle &ptr1 = command.addList();
+        ptr1.addString("approach");
+        Bottle &ptr2 = ptr1.addList();
+        ptr2.addDouble(-0.05);
+        ptr2.addDouble(0.0);
+        if(useRightHand)
+        {
+            ptr2.addDouble(-0.05);
+            command.addString("right");
+        }
+        else
+        {
+            ptr2.addDouble(0.05);
+            command.addString("left");
+        }
+        ptr2.addDouble(0.0);
+
+        yInfo() << "goToGraspingPose: sending command to action module:" << command.toString();
+
+        Bottle reply;
+        actionGatewayPort.write(command, reply);
+
+        if(reply.get(0).asVocab()==Vocab::encode("ack")) return true;
+        else return false;
     }
 
     /****************************************************************/
@@ -270,15 +305,9 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
             return false;
         }
 
-        if(!this->goToGraspingPose(finalGraspingPose))
+        if(!this->performGrasp(finalGraspingPose, true))
         {
-            yError()<<"serviceGraspObjectAtPosition: goToGraspingPose failed";
-            return false;
-        }
-
-        if(!this->graspObject())
-        {
-            yError()<<"serviceGraspObjectAtPosition: graspObject failed";
+            yError()<<"serviceGraspObjectAtPosition: performGrasp failed";
             return false;
         }
 
