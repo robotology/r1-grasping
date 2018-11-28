@@ -2,8 +2,17 @@
 <name>R1 Grasping Action Gateway Simulation</name>
 <dependencies></dependencies>
 <module>
+    <name>yarplogger</name>
+    <parameters>--start</parameters>
+    <node>localhost</node>
+</module>
+<module>
     <name>cer_gaze-controller</name>
-    <parameters>--robot SIM_CER_ROBOT --cameras::context cameraCalibration --cameras::file cerEyes_320x240.ini --joints-limits::pitch "(-20.0 20.0)" --joints-limits::yaw "(-40.0 40.0)" --verbosity 1 --T 1.0</parameters>
+    <parameters>--robot SIM_CER_ROBOT --cameras::context cameraCalibration --cameras::file cerEyes_320x240.ini --joints-limits::pitch "(-30.0 30.0)" --joints-limits::yaw "(-40.0 40.0)" --verbosity 1 --T 1.0</parameters>
+    <dependencies>
+        <port timeout="5">/yarplogger</port>
+    </dependencies>
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <ensure>
         <wait when="stop">3</wait>
     </ensure>
@@ -12,16 +21,28 @@
 <module>
     <name>cer_reaching-solver</name>
     <parameters>--robot SIM_CER_ROBOT --arm-type left --verbosity 1</parameters>
+    <dependencies>
+        <port timeout="5">/yarplogger</port>
+    </dependencies>
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <node>localhost</node>
 </module>
 <module>
     <name>cer_reaching-solver</name>
     <parameters>--robot SIM_CER_ROBOT --arm-type right --verbosity 1</parameters>
+    <dependencies>
+        <port timeout="5">/yarplogger</port>
+    </dependencies>
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <node>localhost</node>
 </module>
 <module>
     <name>cer_reaching-controller</name>
     <parameters>--robot SIM_CER_ROBOT --arm-type left --verbosity 1 --T 1.0</parameters>
+    <dependencies>
+        <port timeout="5">/yarplogger</port>
+    </dependencies>
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <ensure>
         <wait when="stop">3</wait>
     </ensure>
@@ -30,6 +51,10 @@
 <module>
     <name>cer_reaching-controller</name>
     <parameters>--robot SIM_CER_ROBOT --arm-type right --verbosity 1 --T 1.0</parameters>
+    <dependencies>
+        <port timeout="5">/yarplogger</port>
+    </dependencies>
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <ensure>
         <wait when="stop">3</wait>
     </ensure>
@@ -39,10 +64,12 @@
     <name>action-gateway</name>
     <parameters>--general::robot SIM_CER_ROBOT</parameters>
     <dependencies>
+        <port timeout="5">/yarplogger</port>
         <port timeout="5">/cer_gaze-controller/rpc</port>
         <port timeout="5">/cer_reaching-controller/left/rpc</port>
         <port timeout="5">/cer_reaching-controller/right/rpc</port>
     </dependencies>    
+    <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <ensure>
         <wait when="start">3</wait>
     </ensure>    
