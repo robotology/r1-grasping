@@ -11,6 +11,7 @@
  */
 
 #include <cstdlib>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -37,10 +38,12 @@ class Gateway : public RFModule
 
     string robot;
     double period;
+    double speed_hand;
     int ack,nack;
     bool interrupting;
-    Vector pose_latch;
-    string part_latch;
+    Vector latch_pose;
+    Vector latch_approach;
+    string latch_part;
 
     struct {
         vector<double> head;
@@ -59,7 +62,6 @@ class Gateway : public RFModule
         double lower_arm_heave;
         vector<double> left_hand;
         vector<double> right_hand;
-        double speed_angular;
         double lift;
     } grasping;
 
@@ -123,6 +125,17 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    string choosePart(const string &part, const Vector &pose)
+    {
+        string part_=part;
+        if ((part_!="left") && (part_!="right"))
+        {
+            part_=(pose[1]>0.0?"left":"right");
+        }
+        return part_;
+    }
+
+    /****************************************************************/
     bool goHome(const string &part)
     {
         if (!part.empty() && (part!="all") && (part!="head") && (part!="gaze") &&
@@ -175,7 +188,7 @@ class Gateway : public RFModule
         {
             vector<int> modes(home.left_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.left_hand.size(),numeric_limits<double>::max());
-            vector<double> spds(home.left_hand.size(),home.speed_angular);
+            vector<double> spds(home.left_hand.size(),speed_hand);
 
             imod_left_hand->setControlModes(modes.data());
             ipos_left_hand->setRefAccelerations(accs.data());
@@ -198,7 +211,7 @@ class Gateway : public RFModule
         {
             vector<int> modes(home.right_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_hand.size(),numeric_limits<double>::max());
-            vector<double> spds(home.right_hand.size(),home.speed_angular);
+            vector<double> spds(home.right_hand.size(),speed_hand);
 
             imod_right_hand->setControlModes(modes.data());
             ipos_right_hand->setRefAccelerations(accs.data());
@@ -420,7 +433,7 @@ class Gateway : public RFModule
         {
             vector<int> modes(hand->size(),VOCAB_CM_POSITION);
             vector<double> accs(hand->size(),numeric_limits<double>::max());
-            vector<double> spds(hand->size(),grasping.speed_angular);
+            vector<double> spds(hand->size(),speed_hand);
 
             imod->setControlModes(modes.data());
             ipos->setRefAccelerations(accs.data());
@@ -450,11 +463,7 @@ class Gateway : public RFModule
             return false;
         }
 
-        string part_=part;
-        if ((part_!="left") && (part_!="right"))
-        {
-            part_=(pose[1]>0.0?"left":"right");
-        }
+        string part_=choosePart(part,pose);
         RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
 
         Bottle params;
@@ -505,12 +514,7 @@ class Gateway : public RFModule
             return false;
         }
 
-        string part_=part;
-        if ((part_!="left") && (part_!="right"))
-        {
-            part_=(pose[1]>0.0?"left":"right");
-        }
-
+        string part_=choosePart(part,pose);
         Vector pose_approach=pose;
         pose_approach[0]+=approach[0];
         pose_approach[1]+=approach[1];
@@ -525,6 +529,38 @@ class Gateway : public RFModule
                     Vector pose_lift=pose;
                     pose_lift[2]+=grasping.lift;
                     return reach(pose_lift,part_);
+                }
+            }
+        }
+        return false;
+    }
+
+    /****************************************************************/
+    bool drop()
+    {
+        if (reach(latch_pose,latch_part))
+        {
+            if (goHome(latch_part+"_hand"))
+            {
+                Vector x=latch_pose;
+                x[0]+=latch_approach[0];
+                x[1]+=latch_approach[1];
+                x[2]+=latch_approach[2];
+
+                if (reach(x,latch_part))
+                {
+                    string part_=choosePart(latch_part,latch_pose);
+                    x[0]=0.5;
+                    x[1]=(part_=="left"?0.3:-0.3);
+                    x[2]+=grasping.lift;
+                    x[3]=1.0;
+                    x[4]=x[5]=0.0;
+                    x[6]=-M_PI/2.0;
+
+                    if (reach(x,latch_part))
+                    {
+                        return goHome(latch_part);
+                    }
                 }
             }
         }
@@ -583,6 +619,7 @@ class Gateway : public RFModule
         {
             robot=gGeneral.check("robot",Value(robot)).asString();
             period=gGeneral.check("period",Value(period)).asDouble();
+            speed_hand=gGeneral.check("speed_hand",Value(10.0)).asDouble();
         }
 
         drivers=vector<PolyDriver>(6);
@@ -621,7 +658,6 @@ class Gateway : public RFModule
             grasping.lower_arm_heave=gGrasping.check("lower_arm_heave",Value(0.05)).asDouble();
             getVectorInfo(gGrasping,"left_hand",grasping.left_hand,ipos_left_hand);
             getVectorInfo(gGrasping,"right_hand",grasping.right_hand,ipos_right_hand);
-            grasping.speed_angular=gGrasping.check("speed_angular",Value(10.0)).asDouble();
             grasping.lift=gGrasping.check("lift",Value(0.1)).asDouble();
         }
 
@@ -724,18 +760,13 @@ class Gateway : public RFModule
             }
 
             ok=grasp(pose,approach,part);
-            pose_latch=pose;
-            part_latch=part;
+            latch_pose=pose;
+            latch_approach=approach;
+            latch_part=part;
         }
         else if (cmd==Vocab::encode("drop"))
         {
-            if (reach(pose_latch,part_latch))
-            {
-                if (goHome(part_latch+"_hand"))
-                {
-                    ok=goHome(part_latch);
-                }
-            }
+            ok=drop();
         }
 
         reply.addVocab(ok?ack:nack);
