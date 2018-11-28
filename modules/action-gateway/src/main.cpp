@@ -44,6 +44,7 @@ class Gateway : public RFModule
     Vector latch_pose;
     Vector latch_approach;
     string latch_part;
+    bool gaze_track;
 
     struct {
         vector<double> head;
@@ -559,7 +560,10 @@ class Gateway : public RFModule
 
                     if (reach(x,latch_part))
                     {
-                        return goHome(latch_part);
+                        if (goHome(latch_part))
+                        {
+                            return goHome("gaze");
+                        }
                     }
                 }
             }
@@ -608,10 +612,11 @@ class Gateway : public RFModule
     {
         // default values
         robot="cer";
-        period=0.01;
+        period=0.1;
         ack=Vocab::encode("ack");
         nack=Vocab::encode("nack");
         interrupting=false;
+        gaze_track=false;
 
         // retrieve values from config file
         Bottle &gGeneral=rf.findGroup("general");
@@ -680,6 +685,10 @@ class Gateway : public RFModule
     /****************************************************************/
     bool updateModule() override
     {
+        if (gaze_track)
+        {
+            look(latch_pose.subVector(0,2));
+        }
         return true;
     }
 
@@ -759,10 +768,13 @@ class Gateway : public RFModule
                 part=command.get(3).asString();
             }
 
-            ok=grasp(pose,approach,part);
             latch_pose=pose;
             latch_approach=approach;
             latch_part=part;
+
+            gaze_track=true;
+            ok=grasp(pose,approach,part);
+            gaze_track=false;
         }
         else if (cmd==Vocab::encode("drop"))
         {
