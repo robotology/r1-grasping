@@ -34,6 +34,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     RpcClient superQuadricFetchPort;
     RpcClient graspingPoseGeneratorPort;
     RpcClient graspingPoseRefinerPort;
+    RpcClient graspingPoseSelectionPort;
     RpcClient actionGatewayPort;
 
     /****************************************************************/
@@ -190,9 +191,65 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool getFinalGraspingPose(const vector<Vector> &poseCandidates, Vector &finalGraspingPose) const
+    bool getFinalGraspingPose(const Vector &superQuadricParameters, const vector<Vector> &poseCandidates, Vector &finalGraspingPose)
     {
         //connects to robot kinematic module: sends a set of grasping pose candidates and retrieves the best grasping pose
+
+        finalGraspingPose.resize(7, 0.0);
+
+        if(superQuadricParameters.size() != 10)
+        {
+            yError() << "getFinalGraspingPose: wrong number of superquadric parameters";
+            return false;
+        }
+
+        if(poseCandidates.size()<1)
+        {
+            yError() << "getFinalGraspingPose: no pose candidate to select";
+            return false;
+        }
+
+        if(graspingPoseSelectionPort.getOutputCount()<1)
+        {
+            yError() << "getFinalGraspingPose: no connection to a grasping pose selection module";
+            return false;
+        }
+
+        Bottle command;
+        command.addString("select_best_grasp_pose");
+        for(int i=0 ; i<10 ; i++) command.addDouble(superQuadricParameters[i]);
+
+        for(int i=0 ; i<poseCandidates.size() ; i++)
+        {
+            for(int j=0 ; j<7 ; j++) command.addDouble(poseCandidates[i][j]);
+        }
+
+        Bottle reply;
+        graspingPoseSelectionPort.write(command, reply);
+
+        if(reply.size()<1)
+        {
+            yError() << "getFinalGraspingPose: empty reply from grasp pose selection module";
+            return false;
+        }
+
+        if(reply.get(0).asVocab()==Vocab::encode("nack") || reply.size()<8)
+        {
+            yError() << "getFinalGraspingPose: invalid reply from grasp pose selection module";
+            return false;
+        }
+
+        if(reply.get(0).asVocab()!=Vocab::encode("ok"))
+        {
+            yError() << "getFinalGraspingPose: no valid grasping pose selected by grasp pose selection module";
+            return false;
+        }
+
+        for(int i=0 ; i<7 ; i++) finalGraspingPose[i] = reply.get(i+1).asDouble();
+
+        yInfo() <<  "getFinalGraspingPose: selected final pose" << finalGraspingPose.toString();
+
+        return true;
     }
 
     /****************************************************************/
@@ -299,7 +356,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
         }
 
         Vector finalGraspingPose;
-        if(!this->getFinalGraspingPose(poseCandidates, finalGraspingPose))
+        if(!this->getFinalGraspingPose(superQuadricParameters, poseCandidates, finalGraspingPose))
         {
             yError()<<"serviceGraspObjectAtPosition: getFinalGraspingPose failed";
             return false;
@@ -356,6 +413,13 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
            return false;
         }
 
+        std::string graspingPoseSelectionPortName= "/"+this->getName()+"/graspingPoseSelection:rpc:o";
+        if (!graspingPoseSelectionPort.open(graspingPoseSelectionPortName))
+        {
+           yError() << this->getName() << ": Unable to open port " << graspingPoseSelectionPortName;
+           return false;
+        }
+
         std::string actionGatewayPortName= "/"+this->getName()+"/actionGateway:rpc:o";
         if (!actionGatewayPort.open(actionGatewayPortName))
         {
@@ -390,6 +454,9 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
         rpcPort.interrupt();
         pointCloudFetchPort.interrupt();
         superQuadricFetchPort.interrupt();
+        graspingPoseGeneratorPort.interrupt();
+        graspingPoseRefinerPort.interrupt();
+        graspingPoseSelectionPort.interrupt();
         actionGatewayPort.interrupt();
 
         return true;
@@ -401,6 +468,9 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
         rpcPort.close();
         pointCloudFetchPort.close();
         superQuadricFetchPort.close();
+        graspingPoseGeneratorPort.close();
+        graspingPoseRefinerPort.close();
+        graspingPoseSelectionPort.close();
         actionGatewayPort.close();
 
         return true;
