@@ -44,7 +44,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool getObjectPointCloud(const Vector &position3D, PointCloud<DataXYZRGBA> &pointCloud) const
+    bool getObjectPointCloud(const Vector &position3D, PointCloud<DataXYZRGBA> &pointCloud)
     {
         //connects to some vision module: sends the object position and retrieves a point cloud of the object
 
@@ -53,6 +53,12 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
         if(position3D.size() != 3)
         {
             yError() << "getObjectPointCloud: Invalid dimension of object position input vector";
+            return false;
+        }
+
+        if(pointCloudFetchPort.getOutputCount()<1)
+        {
+            yError() << "getObjectPointCloud: no connection to point cloud reader module";
             return false;
         }
 
@@ -167,6 +173,12 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
             for(int j=0 ; j<7 ; j++) poseCandidatesTmp.back()[j] = reply.get(i+j).asDouble();
         }
 
+        if(graspingPoseRefinerPort.getOutputCount()<1)
+        {
+            yError() << "getGraspingPoseCandidates: no connection to a grasping pose refining module";
+            return false;
+        }
+
         for(int i=0 ; i<poseCandidatesTmp.size() ; i++)
         {
             command.clear();
@@ -253,9 +265,21 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
-    bool performGrasp(const Vector &finalGraspingPose, bool useRightHand) const
+    bool performGrasp(const Vector &finalGraspingPose, bool useRightHand)
     {
         //connects to a robot kinematic module: sends a grasping pose and retrieves a boolean once the object is grasped
+
+        if(finalGraspingPose.size() != 7)
+        {
+            yError() << "performGrasp: invalid dimension of pose vector";
+            return false;
+        }
+
+        if(actionGatewayPort.getOutputCount() < 1)
+        {
+            yError() << "performGrasp: no connection to action gateway module";
+            return false;
+        }
 
         //  communication with actionRenderingEngine/cmd:io
         //  grasp ("cartesian" x y z gx gy gz theta) ("approach" (-0.05 0 +-0.05 0.0)) "left"/"right"
@@ -290,7 +314,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
         }
         ptr2.addDouble(0.0);
 
-        yInfo() << "goToGraspingPose: sending command to action module:" << command.toString();
+        yInfo() << "performGrasp: sending command to action module:" << command.toString();
 
         Bottle reply;
         actionGatewayPort.write(command, reply);
