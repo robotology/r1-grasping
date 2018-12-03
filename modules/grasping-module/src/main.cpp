@@ -10,8 +10,13 @@
  * @authors: Jason Chevrie <jason.chevrie@iit.it>
  */
 
+#include <iostream>           // for std::cout
+#include <chrono>             // for seconds
+#include <thread>             //for this_thread::sleep_for
 #include <cstdlib>
 #include <string>
+
+//YARP imports
 #include <yarp/os/all.h>
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
@@ -20,13 +25,17 @@
 
 #include <src/GraspingModule_IDL.h>
 
+//behavior trees imports
+#include <tick_server.h>
+
+
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::sig;
 using namespace yarp::math;
 
 /****************************************************************/
-class GraspingModule : public RFModule, public GraspingModule_IDL
+class GraspingModule : public RFModule, public GraspingModule_IDL, public TickServer
 {
     RpcServer rpcPort;
 
@@ -38,7 +47,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     RpcClient actionGatewayPort;
 
     /****************************************************************/
-    bool getObjectPosition(const string &objectName, Vector &position) const
+    bool getObjectPosition(const string &objectName, Vector &position)
     {
         //connects to an object recognition database: sends the object name and retrieves object location
     }
@@ -396,12 +405,100 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     }
 
     /****************************************************************/
+    ReturnStatus execute_tick(const std::string& params)
+    {
+         (void)params;
+
+        // perform the full grasping of an object with a given name
+yDebug() << "Received tick";
+        if(this->getHalted()) return BT_HALTED;
+yDebug() << "halted checked";
+        Vector position3D;
+        string objectName("Bottle");
+        if(!this->getObjectPosition(objectName, position3D))
+        {
+            yError()<<"execute_tick: getObjectPosition failed";
+            return BT_FAILURE;
+        }
+yDebug() << "object position ok";
+        if(this->getHalted()) return BT_HALTED;
+
+        PointCloud<DataXYZRGBA> pointCloud;
+        if(!this->getObjectPointCloud(position3D, pointCloud))
+        {
+            yError()<<"execute_tick: getObjectPointCloud failed";
+            return BT_FAILURE;
+        }
+
+        if(this->getHalted()) return BT_HALTED;
+
+        Vector superQuadricParameters;
+        if(!this->getObjectSuperquadric(pointCloud, superQuadricParameters))
+        {
+            yError()<<"execute_tick: getObjectSuperquadric failed";
+            return BT_FAILURE;
+        }
+
+        if(this->getHalted()) return BT_HALTED;
+
+        vector<Vector> poseCandidates;
+        if(!this->getGraspingPoseCandidates(superQuadricParameters, poseCandidates))
+        {
+            yError()<<"execute_tick: getGraspingPoseCandidates failed";
+            return BT_FAILURE;
+        }
+
+        if(this->getHalted()) return BT_HALTED;
+
+        Vector finalGraspingPose;
+        if(!this->getFinalGraspingPose(superQuadricParameters, poseCandidates, finalGraspingPose))
+        {
+            yError()<<"execute_tick: getFinalGraspingPose failed";
+            return BT_FAILURE;
+        }
+
+        if(this->getHalted()) return BT_HALTED;
+
+        if(!this->performGrasp(finalGraspingPose, true))
+        {
+            yError()<<"execute_tick: performGrasp failed";
+            return BT_FAILURE;
+        }
+
+        return BT_SUCCESS;
+    }
+
+    /****************************************************************/
+    ReturnStatus request_status()
+    {
+        return BT_RUNNING;
+        // TODO once TickServer is fixed
+        //return status_;
+    }
+
+    /****************************************************************/
+    ReturnStatus request_halt()
+    {
+        this->setHalted(true);
+
+        // TODO once TickServer is fixed
+        //while(status_ == BT_RUNNING)
+        //{
+        //    std::this_thread::sleep_for( std::chrono::seconds(0.1) );
+        //}
+
+        return BT_HALTED;
+    }
+
+    /****************************************************************/
     bool configure(ResourceFinder &rf) override
     {
         std::string moduleName = rf.check("name",Value("grasping-module"),"module name (string)").asString().c_str();
         this->setName(moduleName.c_str());
 
-        this->yarp().attachAsServer(rpcPort);
+        this->configure_tick_server("/"+moduleName, true);
+
+        static_cast<GraspingModule_IDL*>(this)->yarp().attachAsServer(rpcPort);
         std::string rpcPortName= "/"+this->getName()+"/rpc";
         if (!rpcPort.open(rpcPortName))
         {

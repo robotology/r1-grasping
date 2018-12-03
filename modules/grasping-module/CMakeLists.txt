@@ -8,10 +8,14 @@ find_package(YARP 3.1.0 REQUIRED COMPONENTS OS sig math dev)
 set(generated_libs_dir "${CMAKE_CURRENT_SOURCE_DIR}/idl")
 yarp_idl_to_dir(src/idl.thrift ${generated_libs_dir} sources headers include_dirs)
 
+find_library(BT_lib libYARP_tickable)
+find_path(BT_include_dir "/include/yarp_bt_action_module.h")
+
 add_definitions(-D_USE_MATH_DEFINES)
-include_directories(${include_dirs})
+include_directories(${include_dirs} ${BT_include_dir})
+
 add_executable(${PROJECT_NAME} src/main.cpp ${sources} ${headers})
-target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES} ${BT_lib})
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 file(GLOB ini app/conf/*.ini)
