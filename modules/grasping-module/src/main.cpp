@@ -39,6 +39,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
 {
     RpcServer rpcPort;
 
+    RpcClient objectPositionFetchPort;
     RpcClient pointCloudFetchPort;
     RpcClient superQuadricFetchPort;
     RpcClient graspingPoseGeneratorPort;
@@ -50,6 +51,38 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
     bool getObjectPosition(const string &objectName, Vector &position)
     {
         //connects to an object recognition database: sends the object name and retrieves object location
+
+        position.resize(3, 0.0);
+
+        if(objectPositionFetchPort.getOutputCount()<1)
+        {
+            yError() << "getObjectPosition: no connection to object position reader module";
+            return false;
+        }
+
+        Bottle cmd;
+        cmd.addString("get");
+        cmd.addString(objectName+"Pose");
+
+        Bottle reply;
+        objectPositionFetchPort.write(cmd, reply);
+
+        if(reply.size() != 1)
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer from object position reader module: " << reply.toString();
+            return false;
+        }
+
+        Bottle *vector = reply.get(0).asList();
+        if(vector->size() != 7)
+        {
+            yError() << "getObjectPosition: Retrieved invalid pose vector from object position reader module: " << vector->toString();
+            return false;
+        }
+
+        for(int i=0 ; i<3 ; i++) position[i] = vector->get(i).asDouble();
+
+        return true;
     }
 
     /****************************************************************/
@@ -506,6 +539,13 @@ yDebug() << "object position ok";
            return false;
         }
 
+        std::string objectPositionFetchPortName= "/"+this->getName()+"/objectPositionFetch:rpc:o";
+        if (!objectPositionFetchPort.open(objectPositionFetchPortName))
+        {
+           yError() << this->getName() << ": Unable to open port " << objectPositionFetchPortName;
+           return false;
+        }
+
         std::string pointCloudFetchPortName= "/"+this->getName()+"/pointCloudFetch:rpc:o";
         if (!pointCloudFetchPort.open(pointCloudFetchPortName))
         {
@@ -573,6 +613,7 @@ yDebug() << "object position ok";
     bool interruptModule() override
     {
         rpcPort.interrupt();
+        objectPositionFetchPort.interrupt();
         pointCloudFetchPort.interrupt();
         superQuadricFetchPort.interrupt();
         graspingPoseGeneratorPort.interrupt();
@@ -587,6 +628,7 @@ yDebug() << "object position ok";
     bool close() override
     {
         rpcPort.close();
+        objectPositionFetchPort.close();
         pointCloudFetchPort.close();
         superQuadricFetchPort.close();
         graspingPoseGeneratorPort.close();
