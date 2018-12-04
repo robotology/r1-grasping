@@ -440,87 +440,96 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
     /****************************************************************/
     ReturnStatus execute_tick(const std::string& params)
     {
-         (void)params;
+        (void)params;
 
-        // perform the full grasping of an object with a given name
-yDebug() << "Received tick";
-        if(this->getHalted()) return BT_HALTED;
-yDebug() << "halted checked";
+        this->set_status(BT_RUNNING);
+
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
+
         Vector position3D;
         string objectName("Bottle");
         if(!this->getObjectPosition(objectName, position3D))
         {
             yError()<<"execute_tick: getObjectPosition failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
-yDebug() << "object position ok";
-        if(this->getHalted()) return BT_HALTED;
+
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
 
         PointCloud<DataXYZRGBA> pointCloud;
         if(!this->getObjectPointCloud(position3D, pointCloud))
         {
             yError()<<"execute_tick: getObjectPointCloud failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
 
-        if(this->getHalted()) return BT_HALTED;
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
 
         Vector superQuadricParameters;
         if(!this->getObjectSuperquadric(pointCloud, superQuadricParameters))
         {
             yError()<<"execute_tick: getObjectSuperquadric failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
 
-        if(this->getHalted()) return BT_HALTED;
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
 
         vector<Vector> poseCandidates;
         if(!this->getGraspingPoseCandidates(superQuadricParameters, poseCandidates))
         {
             yError()<<"execute_tick: getGraspingPoseCandidates failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
 
-        if(this->getHalted()) return BT_HALTED;
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
 
         Vector finalGraspingPose;
         if(!this->getFinalGraspingPose(superQuadricParameters, poseCandidates, finalGraspingPose))
         {
             yError()<<"execute_tick: getFinalGraspingPose failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
 
-        if(this->getHalted()) return BT_HALTED;
+        if(this->getHalted())
+        {
+            this->set_status(BT_HALTED);
+            return BT_HALTED;
+        }
 
         if(!this->performGrasp(finalGraspingPose, true))
         {
             yError()<<"execute_tick: performGrasp failed";
+            this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
 
+        this->set_status(BT_SUCCESS);
         return BT_SUCCESS;
-    }
-
-    /****************************************************************/
-    ReturnStatus request_status()
-    {
-        return BT_RUNNING;
-        // TODO once TickServer is fixed
-        //return status_;
-    }
-
-    /****************************************************************/
-    ReturnStatus request_halt()
-    {
-        this->setHalted(true);
-
-        // TODO once TickServer is fixed
-        //while(status_ == BT_RUNNING)
-        //{
-        //    std::this_thread::sleep_for( std::chrono::seconds(0.1) );
-        //}
-
-        return BT_HALTED;
     }
 
     /****************************************************************/
