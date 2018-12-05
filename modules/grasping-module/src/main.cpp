@@ -37,6 +37,8 @@ using namespace yarp::math;
 /****************************************************************/
 class GraspingModule : public RFModule, public GraspingModule_IDL, public TickServer
 {
+    string objectName;
+
     RpcServer rpcPort;
 
     RpcClient objectPositionFetchPort;
@@ -74,7 +76,7 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
         }
 
         Bottle *vector = reply.get(0).asList();
-        if(vector->size() != 7)
+        if(vector->size() < 3)
         {
             yError() << "getObjectPosition: Retrieved invalid pose vector from object position reader module: " << vector->toString();
             return false;
@@ -451,7 +453,6 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
         }
 
         Vector position3D;
-        string objectName("Bottle");
         if(!this->getObjectPosition(objectName, position3D))
         {
             yError()<<"execute_tick: getObjectPosition failed";
@@ -597,13 +598,15 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
            return false;
         }
 
+        objectName = rf.check("objectName",Value("Bottle"),"Grasped object name (string)").asString().c_str();
+
         return true;
     }
 
     /****************************************************************/
     double getPeriod() override
     {
-        return 0.0;
+        return 1.0;
     }
 
     /****************************************************************/
