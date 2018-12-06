@@ -34,6 +34,22 @@ public:
   virtual bool read(yarp::os::ConnectionReader& connection) override;
 };
 
+class GraspingModule_IDL_start : public yarp::os::Portable {
+public:
+  bool _return;
+  void init();
+  virtual bool write(yarp::os::ConnectionWriter& connection) const override;
+  virtual bool read(yarp::os::ConnectionReader& connection) override;
+};
+
+class GraspingModule_IDL_halt : public yarp::os::Portable {
+public:
+  bool _return;
+  void init();
+  virtual bool write(yarp::os::ConnectionWriter& connection) const override;
+  virtual bool read(yarp::os::ConnectionReader& connection) override;
+};
+
 bool GraspingModule_IDL_serviceGraspObject::write(yarp::os::ConnectionWriter& connection) const {
   yarp::os::idl::WireWriter writer(connection);
   if (!writer.writeListHeader(2)) return false;
@@ -84,6 +100,48 @@ void GraspingModule_IDL_serviceGraspObjectAtPosition::init(const double x, const
   this->z = z;
 }
 
+bool GraspingModule_IDL_start::write(yarp::os::ConnectionWriter& connection) const {
+  yarp::os::idl::WireWriter writer(connection);
+  if (!writer.writeListHeader(1)) return false;
+  if (!writer.writeTag("start",1,1)) return false;
+  return true;
+}
+
+bool GraspingModule_IDL_start::read(yarp::os::ConnectionReader& connection) {
+  yarp::os::idl::WireReader reader(connection);
+  if (!reader.readListReturn()) return false;
+  if (!reader.readBool(_return)) {
+    reader.fail();
+    return false;
+  }
+  return true;
+}
+
+void GraspingModule_IDL_start::init() {
+  _return = false;
+}
+
+bool GraspingModule_IDL_halt::write(yarp::os::ConnectionWriter& connection) const {
+  yarp::os::idl::WireWriter writer(connection);
+  if (!writer.writeListHeader(1)) return false;
+  if (!writer.writeTag("halt",1,1)) return false;
+  return true;
+}
+
+bool GraspingModule_IDL_halt::read(yarp::os::ConnectionReader& connection) {
+  yarp::os::idl::WireReader reader(connection);
+  if (!reader.readListReturn()) return false;
+  if (!reader.readBool(_return)) {
+    reader.fail();
+    return false;
+  }
+  return true;
+}
+
+void GraspingModule_IDL_halt::init() {
+  _return = false;
+}
+
 GraspingModule_IDL::GraspingModule_IDL() {
   yarp().setOwner(*this);
 }
@@ -103,6 +161,26 @@ bool GraspingModule_IDL::serviceGraspObjectAtPosition(const double x, const doub
   helper.init(x,y,z);
   if (!yarp().canWrite()) {
     yError("Missing server method '%s'?","bool GraspingModule_IDL::serviceGraspObjectAtPosition(const double x, const double y, const double z)");
+  }
+  bool ok = yarp().write(helper,helper);
+  return ok?helper._return:_return;
+}
+bool GraspingModule_IDL::start() {
+  bool _return = false;
+  GraspingModule_IDL_start helper;
+  helper.init();
+  if (!yarp().canWrite()) {
+    yError("Missing server method '%s'?","bool GraspingModule_IDL::start()");
+  }
+  bool ok = yarp().write(helper,helper);
+  return ok?helper._return:_return;
+}
+bool GraspingModule_IDL::halt() {
+  bool _return = false;
+  GraspingModule_IDL_halt helper;
+  helper.init();
+  if (!yarp().canWrite()) {
+    yError("Missing server method '%s'?","bool GraspingModule_IDL::halt()");
   }
   bool ok = yarp().write(helper,helper);
   return ok?helper._return:_return;
@@ -159,6 +237,28 @@ bool GraspingModule_IDL::read(yarp::os::ConnectionReader& connection) {
       reader.accept();
       return true;
     }
+    if (tag == "start") {
+      bool _return;
+      _return = start();
+      yarp::os::idl::WireWriter writer(reader);
+      if (!writer.isNull()) {
+        if (!writer.writeListHeader(1)) return false;
+        if (!writer.writeBool(_return)) return false;
+      }
+      reader.accept();
+      return true;
+    }
+    if (tag == "halt") {
+      bool _return;
+      _return = halt();
+      yarp::os::idl::WireWriter writer(reader);
+      if (!writer.isNull()) {
+        if (!writer.writeListHeader(1)) return false;
+        if (!writer.writeBool(_return)) return false;
+      }
+      reader.accept();
+      return true;
+    }
     if (tag == "help") {
       std::string functionName;
       if (!reader.readString(functionName)) {
@@ -195,6 +295,8 @@ std::vector<std::string> GraspingModule_IDL::help(const std::string& functionNam
     helpString.emplace_back("*** Available commands:");
     helpString.emplace_back("serviceGraspObject");
     helpString.emplace_back("serviceGraspObjectAtPosition");
+    helpString.emplace_back("start");
+    helpString.emplace_back("halt");
     helpString.emplace_back("help");
   }
   else {
@@ -203,6 +305,12 @@ std::vector<std::string> GraspingModule_IDL::help(const std::string& functionNam
     }
     if (functionName=="serviceGraspObjectAtPosition") {
       helpString.emplace_back("bool serviceGraspObjectAtPosition(const double x, const double y, const double z) ");
+    }
+    if (functionName=="start") {
+      helpString.emplace_back("bool start() ");
+    }
+    if (functionName=="halt") {
+      helpString.emplace_back("bool halt() ");
     }
     if (functionName=="help") {
       helpString.emplace_back("std::vector<std::string> help(const std::string& functionName=\"--all\")");

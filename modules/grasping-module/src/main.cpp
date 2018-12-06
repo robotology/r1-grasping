@@ -14,6 +14,7 @@
 #include <chrono>             // for seconds
 #include <thread>             //for this_thread::sleep_for
 #include <cstdlib>
+#include <atomic>
 #include <string>
 
 //YARP imports
@@ -44,6 +45,8 @@ class GraspingModule : public RFModule, public GraspingModule_IDL
     RpcClient graspingPoseRefinerPort;
     RpcClient graspingPoseSelectionPort;
     RpcClient actionGatewayPort;
+
+    std::atomic<bool> halt_requested;
 
     /****************************************************************/
     bool getObjectPosition(const string &objectName, Vector &position)
@@ -417,10 +420,22 @@ yDebug() << "position 3D " << position_3d->toString();
 
         yInfo() << this->getName() << ": receive instruction to grasp object:" << objectName;
 
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
+            return false;
+        }
+
         Vector position3D;
         if(!this->getObjectPosition(objectName, position3D))
         {
             yError()<<"serviceGraspObject: getObjectPosition failed";
+            return false;
+        }
+
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObject: halt requested before end of process";
             return false;
         }
 
@@ -445,10 +460,22 @@ yDebug() << "position 3D " << position_3d->toString();
         position3D[1]=y;
         position3D[2]=z;
 
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
+            return false;
+        }
+
         PointCloud<DataXYZRGBA> pointCloud;
         if(!this->getObjectPointCloud(position3D, pointCloud))
         {
             yError()<<"serviceGraspObjectAtPosition: getObjectPointCloud failed";
+            return false;
+        }
+
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
             return false;
         }
 
@@ -459,10 +486,22 @@ yDebug() << "position 3D " << position_3d->toString();
             return false;
         }
 
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
+            return false;
+        }
+
         vector<Vector> poseCandidates;
         if(!this->getGraspingPoseCandidates(superQuadricParameters, poseCandidates))
         {
             yError()<<"serviceGraspObjectAtPosition: getGraspingPoseCandidates failed";
+            return false;
+        }
+
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
             return false;
         }
 
@@ -473,12 +512,30 @@ yDebug() << "position 3D " << position_3d->toString();
             return false;
         }
 
+        if(halt_requested)
+        {
+            yInfo()<<"serviceGraspObjectAtPosition: halt requested before end of process";
+            return false;
+        }
+
         if(!this->performGrasp(finalGraspingPose, true))
         {
             yError()<<"serviceGraspObjectAtPosition: performGrasp failed";
             return false;
         }
 
+        return true;
+    }
+
+    bool start()
+    {
+        halt_requested = false;
+        return true;
+    }
+
+    bool halt()
+    {
+        halt_requested = true;
         return true;
     }
 
@@ -546,6 +603,8 @@ yDebug() << "position 3D " << position_3d->toString();
         }
 
         objectName = rf.check("objectName",Value("Bottle"),"Grasped object name (string)").asString().c_str();
+
+        halt_requested = false;
 
         return true;
     }
