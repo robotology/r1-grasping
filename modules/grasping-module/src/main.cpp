@@ -25,17 +25,13 @@
 
 #include <src/GraspingModule_IDL.h>
 
-//behavior trees imports
-#include <tick_server.h>
-
-
 using namespace std;
 using namespace yarp::os;
 using namespace yarp::sig;
 using namespace yarp::math;
 
 /****************************************************************/
-class GraspingModule : public RFModule, public GraspingModule_IDL, public TickServer
+class GraspingModule : public RFModule, public GraspingModule_IDL
 {
     string objectName;
 
@@ -63,26 +59,73 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
         }
 
         Bottle cmd;
-        cmd.addString("get");
-        cmd.addString(objectName+"Pose");
-
+        cmd.fromString("ask ((name == "+objectName+"))");
+yDebug() << "sending " << cmd.toString();
         Bottle reply;
         objectPositionFetchPort.write(cmd, reply);
-
-        if(reply.size() != 1)
+yDebug() << "get reply " << reply.toString();
+        if(reply.size() != 2)
         {
-            yError() << "getObjectPosition: Retrieved invalid answer from object position reader module: " << reply.toString();
+            yError() << "getObjectPosition: Retrieved invalid answer to object id query from the object position reader module: " << reply.toString();
             return false;
         }
 
-        Bottle *vector = reply.get(0).asList();
-        if(vector->size() < 3)
+        if(reply.get(0).asVocab() != Vocab::encode("ack"))
         {
-            yError() << "getObjectPosition: Retrieved invalid pose vector from object position reader module: " << vector->toString();
+            yError() << "getObjectPosition: object" << objectName << "does not exist in the database";
             return false;
         }
 
-        for(int i=0 ; i<3 ; i++) position[i] = vector->get(i).asDouble();
+        if(!reply.check("id"))
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer to object id query from the object position reader module: missing id:" << reply.toString();
+            return false;
+        }
+
+        Bottle *objectIDlist = reply.find("id").asList();
+yDebug() << "object ID list " <<objectIDlist->toString();
+        if(objectIDlist->size() < 1)
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer to object id query from the object position reader module: empty id list:" << reply.toString();
+            return false;
+        }
+
+        int objectID = objectIDlist->get(0).asInt();
+yDebug() << "object ID " << objectID;
+        cmd.clear();
+yDebug() << "sending: " << "get ((id "+objectIDlist->get(0).toString()+") (propSet (position_3d)))";
+        cmd.fromString("get ((id "+objectIDlist->get(0).toString()+") (propSet (position_3d)))");
+yDebug() << "sending " << cmd.toString();
+        objectPositionFetchPort.write(cmd, reply);
+yDebug() << "get reply " << reply.toString();
+        if(reply.size() != 2)
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer to object position query from object position reader module: " << reply.toString();
+            return false;
+        }
+
+        if(reply.get(0).asVocab() != Vocab::encode("ack"))
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer to object position query from object position reader module: object position not found: " << reply.toString();
+            return false;
+        }
+
+        if(!reply.get(1).check("position_3d"))
+        {
+            yError() << "getObjectPosition: Retrieved invalid answer to object position query from object position reader module: object position not found: " << reply.toString();
+            return false;
+        }
+
+        Bottle *position_3d = reply.get(1).find("position_3d").asList();
+yDebug() << "position 3D " << position_3d->toString();
+
+        if(position_3d->size() < 3)
+        {
+            yError() << "getObjectPosition: Retrieved invalid dimension of object position retrived from object position reader module: " << position_3d->toString();
+            return false;
+        }
+
+        for(int i=0 ; i<3 ; i++) position[i] = position_3d->get(i).asDouble();
 
         return true;
     }
@@ -368,40 +411,6 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
     }
 
     /****************************************************************/
-    bool setObjectGraspedBlackboardFlag(bool flag)
-    {
-        //connects to the blackboard: set the ObjectGrasped flag
-
-        if(objectPositionFetchPort.getOutputCount()<1)
-        {
-            yError() << "setObjectGraspedFlag: no connection to blackboard module";
-            return false;
-        }
-
-        Bottle cmd;
-        cmd.addString("set");
-        cmd.addString(objectName+"Grasped");
-        cmd.addString(flag?"True":"False");
-
-        Bottle reply;
-        objectPositionFetchPort.write(cmd, reply);
-
-        if(reply.size() != 1)
-        {
-            yError() << "setObjectGraspedFlag: Retrieved invalid answer from blackboard module: " << reply.toString();
-            return false;
-        }
-
-        if(reply.get(0).asInt() != 1)
-        {
-            yError() << "setObjectGraspedFlag: Retrieved invalid pose vector from blackboard module: " << reply.toString();
-            return false;
-        }
-
-        return true;
-    }
-
-    /****************************************************************/
     bool serviceGraspObject(const string &objectName)
     {
         // perform the full grasping of an object with a given name
@@ -474,113 +483,10 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
     }
 
     /****************************************************************/
-    ReturnStatus execute_tick(const std::string& params)
-    {
-        (void)params;
-
-        this->set_status(BT_RUNNING);
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        Vector position3D;
-        if(!this->getObjectPosition(objectName, position3D))
-        {
-            yError()<<"execute_tick: getObjectPosition failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        PointCloud<DataXYZRGBA> pointCloud;
-        if(!this->getObjectPointCloud(position3D, pointCloud))
-        {
-            yError()<<"execute_tick: getObjectPointCloud failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        Vector superQuadricParameters;
-        if(!this->getObjectSuperquadric(pointCloud, superQuadricParameters))
-        {
-            yError()<<"execute_tick: getObjectSuperquadric failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        vector<Vector> poseCandidates;
-        if(!this->getGraspingPoseCandidates(superQuadricParameters, poseCandidates))
-        {
-            yError()<<"execute_tick: getGraspingPoseCandidates failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        Vector finalGraspingPose;
-        if(!this->getFinalGraspingPose(superQuadricParameters, poseCandidates, finalGraspingPose))
-        {
-            yError()<<"execute_tick: getFinalGraspingPose failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(this->getHalted())
-        {
-            this->set_status(BT_HALTED);
-            return BT_HALTED;
-        }
-
-        if(!this->performGrasp(finalGraspingPose, true))
-        {
-            yError()<<"execute_tick: performGrasp failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        if(!this->setObjectGraspedBlackboardFlag(true))
-        {
-            yError()<<"execute_tick: setObjectGraspedFlag(true) failed";
-            this->set_status(BT_FAILURE);
-            return BT_FAILURE;
-        }
-
-        this->set_status(BT_SUCCESS);
-        return BT_SUCCESS;
-    }
-
-    /****************************************************************/
     bool configure(ResourceFinder &rf) override
     {
         std::string moduleName = rf.check("name",Value("grasping-module"),"module name (string)").asString().c_str();
         this->setName(moduleName.c_str());
-
-        this->configure_tick_server("/"+moduleName, true);
 
         static_cast<GraspingModule_IDL*>(this)->yarp().attachAsServer(rpcPort);
         std::string rpcPortName= "/"+this->getName()+"/rpc";
