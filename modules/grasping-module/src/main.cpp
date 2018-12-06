@@ -8,6 +8,9 @@
 /**
  * @file main.cpp
  * @authors: Jason Chevrie <jason.chevrie@iit.it>
+ * @brief This module is a wrapper over several other modules to perform the grasping of an object
+ * @remarks This module requires several other modules to work:
+ * objectPropertiesCollector, point-cloud-read, find-superquadric, grasp-pose-gen, action-gateway
  */
 
 #include <iostream>           // for std::cout
@@ -34,8 +37,6 @@ using namespace yarp::math;
 /****************************************************************/
 class GraspingModule : public RFModule, public GraspingModule_IDL
 {
-    string objectName;
-
     RpcServer rpcPort;
 
     RpcClient objectPositionFetchPort;
@@ -546,7 +547,7 @@ yDebug() << "position 3D " << position_3d->toString();
         this->setName(moduleName.c_str());
 
         static_cast<GraspingModule_IDL*>(this)->yarp().attachAsServer(rpcPort);
-        std::string rpcPortName= "/"+this->getName()+"/rpc";
+        std::string rpcPortName= "/"+this->getName()+"/rpc:i";
         if (!rpcPort.open(rpcPortName))
         {
            yError() << this->getName() << ": Unable to open port " << rpcPortName;
@@ -601,8 +602,6 @@ yDebug() << "position 3D " << position_3d->toString();
            yError() << this->getName() << ": Unable to open port " << actionGatewayPortName;
            return false;
         }
-
-        objectName = rf.check("objectName",Value("Bottle"),"Grasped object name (string)").asString().c_str();
 
         halt_requested = false;
 
