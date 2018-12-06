@@ -368,6 +368,40 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
     }
 
     /****************************************************************/
+    bool setObjectGraspedBlackboardFlag(bool flag)
+    {
+        //connects to the blackboard: set the ObjectGrasped flag
+
+        if(objectPositionFetchPort.getOutputCount()<1)
+        {
+            yError() << "setObjectGraspedFlag: no connection to blackboard module";
+            return false;
+        }
+
+        Bottle cmd;
+        cmd.addString("set");
+        cmd.addString(objectName+"Grasped");
+        cmd.addString(flag?"True":"False");
+
+        Bottle reply;
+        objectPositionFetchPort.write(cmd, reply);
+
+        if(reply.size() != 1)
+        {
+            yError() << "setObjectGraspedFlag: Retrieved invalid answer from blackboard module: " << reply.toString();
+            return false;
+        }
+
+        if(reply.get(0).asInt() != 1)
+        {
+            yError() << "setObjectGraspedFlag: Retrieved invalid pose vector from blackboard module: " << reply.toString();
+            return false;
+        }
+
+        return true;
+    }
+
+    /****************************************************************/
     bool serviceGraspObject(const string &objectName)
     {
         // perform the full grasping of an object with a given name
@@ -525,6 +559,13 @@ class GraspingModule : public RFModule, public GraspingModule_IDL, public TickSe
         if(!this->performGrasp(finalGraspingPose, true))
         {
             yError()<<"execute_tick: performGrasp failed";
+            this->set_status(BT_FAILURE);
+            return BT_FAILURE;
+        }
+
+        if(!this->setObjectGraspedBlackboardFlag(true))
+        {
+            yError()<<"execute_tick: setObjectGraspedFlag(true) failed";
             this->set_status(BT_FAILURE);
             return BT_FAILURE;
         }
