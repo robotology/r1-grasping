@@ -78,27 +78,27 @@
 <connection>
     <from>/cer_reaching-controller/left/solver:rpc</from>
     <to>/cer_reaching-solver/left/rpc</to>
-    <protocol>fast_tcp</protocol>
+    <protocol>tcp</protocol>
 </connection>
 <connection>
     <from>/cer_reaching-controller/right/solver:rpc</from>
     <to>/cer_reaching-solver/right/rpc</to>
-    <protocol>fast_tcp</protocol>
+    <protocol>tcp</protocol>
 </connection>
 <connection>
     <from>/action-gateway/gaze/rpc</from>
     <to>/cer_gaze-controller/rpc</to>
-    <protocol>fast_tcp</protocol>
+    <protocol>tcp</protocol>
 </connection>
 <connection>
     <from>/action-gateway/reach/left/rpc</from>
     <to>/cer_reaching-controller/left/rpc</to>
-    <protocol>fast_tcp</protocol>
+    <protocol>tcp</protocol>
 </connection>
 <connection>
     <from>/action-gateway/reach/right/rpc</from>
     <to>/cer_reaching-controller/right/rpc</to>
-    <protocol>fast_tcp</protocol>
+    <protocol>tcp</protocol>
 </connection>
 </application>
 
