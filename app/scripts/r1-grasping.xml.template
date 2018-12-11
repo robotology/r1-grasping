@@ -214,22 +214,22 @@
         <connection>
                 <from>/iolStateMachineHandler/motor:rpc</from>
                 <to>/action-gateway/cmd:io</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/memory:rpc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/action-gateway/opc/rpc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/iolHelper/opc</from>
                 <to>/memory/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/speechRecognizer/recog/continuous:o</from>
@@ -299,11 +299,11 @@
         <connection>
                 <from>/iolStateMachineHandler/get3d:rpc</from>
                 <to>/vision3d-gateway/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
         <connection>
                 <from>/action-gateway/gaze/rpc</from>
                 <to>/cer_gaze-controller/rpc</to>
-                <protocol>tcp</protocol>
+                <protocol>fast_tcp</protocol>
         </connection>
 </application>
