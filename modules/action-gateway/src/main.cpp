@@ -456,17 +456,8 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool reach(const Vector &pose, const string &part="select")
+    Bottle prepareReachingParams() const
     {
-        if (pose.length()<7)
-        {
-            yError()<<"Too few parameters given for reaching";
-            return false;
-        }
-
-        string part_=choosePart(part,pose);
-        RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
-
         Bottle params;
         Bottle &params_info1=params.addList();
         params_info1.addString("parameters");
@@ -484,6 +475,21 @@ class Gateway : public RFModule
         lower_arm_heave.addString("lower_arm_heave");
         lower_arm_heave.addDouble(grasping.lower_arm_heave);
 
+        return params;
+    }
+
+    /****************************************************************/
+    bool reach(const Vector &pose, const string &part="select")
+    {
+        if (pose.length()<7)
+        {
+            yError()<<"Too few parameters given for reaching";
+            return false;
+        }
+
+        string part_=choosePart(part,pose);
+        RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
+
         Bottle target;
         Bottle &target_info=target.addList();
         target_info.addString("target");
@@ -492,7 +498,7 @@ class Gateway : public RFModule
         Bottle cmd,rep;
         cmd.addVocab(Vocab::encode("go"));
         Bottle &cmd_info=cmd.addList();
-        cmd_info.append(params);
+        cmd_info.append(prepareReachingParams());
         cmd_info.append(target);
         if (port->write(cmd,rep))
         {
@@ -696,6 +702,8 @@ class Gateway : public RFModule
     bool respond(const Bottle &command, Bottle &reply) override
     {
         bool ok=false;
+        Bottle payLoad;
+
         int cmd=command.get(0).asVocab();
         if (cmd==Vocab::encode("home"))
         {
@@ -783,8 +791,20 @@ class Gateway : public RFModule
         {
             ok=drop();
         }
+        else if ((cmd==Vocab::encode("get")) && (command.size()>=2))
+        {
+            if (command.get(1).asString()=="reaching-parameters")
+            {
+                ok=true;
+                payLoad=prepareReachingParams();
+            }
+        }
 
         reply.addVocab(ok?ack:nack);
+        if (payLoad.size()>0)
+        {
+            reply.append(payLoad);
+        }
         return true;
     }
 
