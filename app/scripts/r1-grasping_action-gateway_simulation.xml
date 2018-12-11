@@ -65,13 +65,13 @@
     <parameters>--general::robot SIM_CER_ROBOT</parameters>
     <dependencies>
         <port timeout="5">/yarplogger</port>
-        <port timeout="5">/cer_gaze-controller/rpc</port>
-        <port timeout="5">/cer_reaching-controller/left/rpc</port>
-        <port timeout="5">/cer_reaching-controller/right/rpc</port>
+        <port timeout="8">/cer_gaze-controller/rpc</port>
+        <port timeout="8">/cer_reaching-controller/left/rpc</port>
+        <port timeout="8">/cer_reaching-controller/right/rpc</port>
     </dependencies>    
     <environment>YARP_FORWARD_LOG_ENABLE=1</environment>
     <ensure>
-        <wait when="start">3</wait>
+        <wait when="start">5</wait>
     </ensure>    
     <node>localhost</node>
 </module>

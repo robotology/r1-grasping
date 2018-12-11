@@ -741,8 +741,7 @@ class Gateway : public RFModule
         }
         else if ((cmd==Vocab::encode("grasp")) && (command.size()>=3))
         {
-            Vector pose,approach;
-            string part="select";
+            Vector pose;
             if (Bottle *b1=command.get(1).asList())
             {
                 for (size_t i=1; i<b1->size(); i++)
@@ -750,6 +749,8 @@ class Gateway : public RFModule
                     pose.push_back(b1->get(i).asDouble());
                 }
             }
+
+            Vector approach(4,0.0);
             if (Bottle *b1=command.get(2).asList())
             {
                 if (b1->size()>=2)
@@ -763,6 +764,8 @@ class Gateway : public RFModule
                     }
                 }
             }
+
+            string part="select";
             if (command.size()>=4)
             {
                 part=command.get(3).asString();
