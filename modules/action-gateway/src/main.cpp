@@ -472,7 +472,7 @@ class Gateway : public RFModule
         params_info1.addString("parameters");
         Bottle &params_info2=params_info1.addList();
 
-        Bottle mode=params_info2.addList();
+        Bottle &mode=params_info2.addList();
         mode.addString("mode");
         mode.addString(grasping.mode);
 
