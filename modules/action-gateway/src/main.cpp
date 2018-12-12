@@ -474,8 +474,17 @@ class Gateway : public RFModule
         Bottle &lower_arm_heave=params_info2.addList();
         lower_arm_heave.addString("lower_arm_heave");
         lower_arm_heave.addDouble(grasping.lower_arm_heave);
-
         return params;
+    }
+
+    /****************************************************************/
+    Bottle prepareReachingTarget(const Vector &pose) const
+    {
+        Bottle target;
+        Bottle &target_info=target.addList();
+        target_info.addString("target");
+        target_info.addList().read(pose);
+        return target;
     }
 
     /****************************************************************/
@@ -490,22 +499,46 @@ class Gateway : public RFModule
         string part_=choosePart(part,pose);
         RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
 
-        Bottle target;
-        Bottle &target_info=target.addList();
-        target_info.addString("target");
-        target_info.addList().read(pose);
-
         Bottle cmd,rep;
         cmd.addVocab(Vocab::encode("go"));
         Bottle &cmd_info=cmd.addList();
         cmd_info.append(prepareReachingParams());
-        cmd_info.append(target);
+        cmd_info.append(prepareReachingTarget(pose));
         if (port->write(cmd,rep))
         {
             yInfo()<<cmd.toString();
             if (rep.get(0).asVocab()==ack)
             {
                 return waitUntilDone(*port);
+            }
+        }
+        return false;
+    }
+
+    /****************************************************************/
+    bool ask(const Vector &pose, Bottle &payLoad, const string &part="select")
+    {
+        if (pose.length()<7)
+        {
+            yError()<<"Too few parameters given for reaching";
+            return false;
+        }
+
+        string part_=choosePart(part,pose);
+        RpcClient *port=&(part_=="left"?reachLPort:reachRPort);
+
+        Bottle cmd,rep;
+        cmd.addVocab(Vocab::encode("ask"));
+        Bottle &cmd_info=cmd.addList();
+        cmd_info.append(prepareReachingParams());
+        cmd_info.append(prepareReachingTarget(pose));
+        if (port->write(cmd,rep))
+        {
+            yInfo()<<cmd.toString();
+            if (rep.get(0).asVocab()==ack)
+            {
+                payLoad=rep.tail();
+                return true;
             }
         }
         return false;
@@ -791,17 +824,28 @@ class Gateway : public RFModule
         {
             ok=drop();
         }
-        else if ((cmd==Vocab::encode("get")) && (command.size()>=2))
+        else if ((cmd==Vocab::encode("ask")) && (command.size()>=2))
         {
-            if (command.get(1).asString()=="reaching-parameters")
+            Vector pose;
+            if (Bottle *b1=command.get(1).asList())
             {
-                ok=true;
-                payLoad=prepareReachingParams();
+                for (size_t i=0; i<b1->size(); i++)
+                {
+                    pose.push_back(b1->get(i).asDouble());
+                }
             }
+
+            string part="select";
+            if (command.size()>=3)
+            {
+                part=command.get(2).asString();
+            }
+
+            ok=ask(pose,payLoad,part);
         }
 
         reply.addVocab(ok?ack:nack);
-        if (payLoad.size()>0)
+        if (ok && (payLoad.size()>0))
         {
             reply.append(payLoad);
         }
