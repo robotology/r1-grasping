@@ -516,7 +516,7 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool ask(const Vector &pose, Bottle &payLoad, const string &part="select")
+    bool ask(Bottle &payLoad, const Vector &pose, const string &part="select")
     {
         if (pose.length()<7)
         {
@@ -841,7 +841,7 @@ class Gateway : public RFModule
                 part=command.get(2).asString();
             }
 
-            ok=ask(pose,payLoad,part);
+            ok=ask(payLoad,pose,part);
         }
 
         reply.addVocab(ok?ack:nack);
