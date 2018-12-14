@@ -367,6 +367,11 @@
                 <protocol>tcp</protocol>
         </connection>
         <connection>
+                <from>/vision3d-gateway/cam:rpc</from>
+                <to>/depthCamera/rpc:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
                 <from>/depthCamera/depthImage:o</from>
                 <to>/vision3d-gateway/depth:i</to>
                 <protocol>fast_tcp</protocol>
