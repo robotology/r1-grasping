@@ -164,6 +164,7 @@
         </module>
         <module>
                 <name>iolStateMachineHandler</name>
+                <parameters>--context r1-grasping --from iol_manager.ini</parameters>
                 <dependencies>
                     <port timeout="5">/yarplogger</port>
                 </dependencies>
