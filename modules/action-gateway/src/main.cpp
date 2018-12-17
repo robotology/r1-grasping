@@ -39,6 +39,7 @@ class Gateway : public RFModule
     string robot;
     double period;
     double speed_hand;
+    double table_height;
     int ack,nack;
     bool interrupting;
     Vector latch_pose;
@@ -665,6 +666,7 @@ class Gateway : public RFModule
             robot=gGeneral.check("robot",Value(robot)).asString();
             period=gGeneral.check("period",Value(period)).asDouble();
             speed_hand=gGeneral.check("speed_hand",Value(10.0)).asDouble();
+            table_height=gGeneral.check("table_height",Value(0.7)).asDouble();
         }
 
         drivers=vector<PolyDriver>(6);
@@ -841,6 +843,19 @@ class Gateway : public RFModule
             }
 
             ok=ask(payLoad,pose,part);
+        }
+        else if (cmd==Vocab::encode("get"))
+        {
+            if (command.size()>=2)
+            {
+                if (command.get(1).asVocab()==Vocab::encode("table"))
+                {
+                    Bottle &table_reply=reply.addList();
+                    table_reply.addString("table_height");
+                    table_reply.addDouble(table_height);
+                    return true;
+                }
+            }
         }
 
         reply.addVocab(ok?ack:nack);
