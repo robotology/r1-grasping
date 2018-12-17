@@ -222,13 +222,13 @@ class Gateway : public RFModule
 
         while (!interrupting)
         {
+            Time::delay(1.0);
             if (checkMotionDonePart(ipos_head) && checkMotionDonePart(ipos_torso) &&
                 checkMotionDonePart(ipos_left_arm) && checkMotionDonePart(ipos_left_hand) &&
                 checkMotionDonePart(ipos_right_arm) && checkMotionDonePart(ipos_right_hand))
             {
                 break;
             }
-            Time::delay(1.0);
         }
 
         yInfo()<<"Homing"<<part<<"complete";
@@ -444,11 +444,11 @@ class Gateway : public RFModule
 
         while (!interrupting)
         {
+            Time::delay(1.0);
             if (checkMotionDonePart(ipos))
             {
                 break;
             }
-            Time::delay(1.0);
         }
 
         yInfo()<<"Closing hand"<<part<<"complete";
@@ -625,6 +625,8 @@ class Gateway : public RFModule
 
         while (!interrupting && (port.getOutputCount()>0))
         {
+            Time::delay(std::min(10.0*period,1.0));
+
             Bottle cmd,rep;
             cmd.addVocab(Vocab::encode("get"));
             cmd.addString("done");
@@ -640,7 +642,6 @@ class Gateway : public RFModule
                 else
                     break;
             }
-            Time::delay(std::min(10.0*period,1.0));
         }
         yInfo()<<part<<"movements complete";
         return (!interrupting);
