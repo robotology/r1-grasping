@@ -546,6 +546,25 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    Vector processApproach(const Vector &pose, const Vector &approach) const
+    {
+        Vector x=pose.subVector(0,2);
+        Vector o=pose.subVector(3,6);
+
+        Matrix R=axis2dcm(o);
+        Vector y=R.getCol(1);
+        y[3]=(M_PI/180.0)*approach[3];
+
+        Vector dx=approach[0]*R.getCol(0).subVector(0,2);
+        Vector dy=approach[1]*R.getCol(1).subVector(0,2);
+        Vector dz=approach[2]*R.getCol(2).subVector(0,2);
+
+        Vector pose_approach=x+dx+dy+dz;
+        pose_approach=cat(pose_approach,dcm2axis(axis2dcm(y)*R));
+        return pose_approach;
+    }
+
+    /****************************************************************/
     bool grasp(const Vector &pose, const Vector &approach,
                const string &part="select")
     {
@@ -556,20 +575,18 @@ class Gateway : public RFModule
         }
 
         string part_=choosePart(part,pose);
-        Vector pose_approach=pose;
-        pose_approach[0]+=approach[0];
-        pose_approach[1]+=approach[1];
-        pose_approach[2]+=approach[2];
-
-        if (reach(pose_approach,part_))
+        if (goHome(part+"_hand"))
         {
-            if (reach(pose,part_))
+            if (reach(processApproach(pose,approach),part_))
             {
-                if (closeHand(part_))
+                if (reach(pose,part_))
                 {
-                    Vector pose_lift=pose;
-                    pose_lift[2]+=grasping.lift;
-                    return reach(pose_lift,part_);
+                    if (closeHand(part_))
+                    {
+                        Vector pose_lift=pose;
+                        pose_lift[2]+=grasping.lift;
+                        return reach(pose_lift,part_);
+                    }
                 }
             }
         }
@@ -583,11 +600,7 @@ class Gateway : public RFModule
         {
             if (goHome(latch_part+"_hand"))
             {
-                Vector x=latch_pose;
-                x[0]+=latch_approach[0];
-                x[1]+=latch_approach[1];
-                x[2]+=latch_approach[2];
-
+                Vector x=processApproach(latch_pose,latch_approach);
                 if (reach(x,latch_part))
                 {
                     string part_=choosePart(latch_part,latch_pose);
