@@ -77,7 +77,7 @@
         </module>
         <module>
                 <name>cer_reaching-controller</name>
-                <parameters>--arm-type left --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.02</parameters>
+                <parameters>--arm-type left --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.002</parameters>
                 <dependencies>
                     <port timeout="5">/yarplogger</port>
                 </dependencies>
@@ -88,7 +88,7 @@
         </module>
         <module>
                 <name>cer_reaching-controller</name>
-                <parameters>--arm-type right --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.02</parameters>
+                <parameters>--arm-type right --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.002</parameters>
                 <dependencies>
                     <port timeout="5">/yarplogger</port>
                 </dependencies>
