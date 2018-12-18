@@ -411,8 +411,11 @@ class Gateway : public RFModule
                 for (int v=tly; v<tly+h; v+=step)
                 {
                     Vector p=getPoint3D(u,v);
-                    p.push_back(1.0);
-                    p=Hcam*p;
+                    if (norm(p)>0.0)
+                    {
+                        p.push_back(1.0);
+                        p=Hcam*p;
+                    }
 
                     reply.addDouble(p[0]);
                     reply.addDouble(p[1]);
@@ -429,8 +432,11 @@ class Gateway : public RFModule
                 int u=command.get(cnt).asInt();
                 int v=command.get(cnt+1).asInt();
                 Vector p=getPoint3D(u,v);
-                p.push_back(1.0);
-                p=Hcam*p;
+                if (norm(p)>0.0)
+                {
+                    p.push_back(1.0);
+                    p=Hcam*p;
+                }
 
                 reply.addDouble(p[0]);
                 reply.addDouble(p[1]);
