@@ -366,39 +366,22 @@ class Gateway : public RFModule
         bool ret=false;
         if (opcPort.getOutputCount()>0)
         {
-            Bottle cmd,rep;
-            cmd.addVocab(Vocab::encode("ask"));
-            Bottle &content=cmd.addList().addList();
+            Bottle cmd1,rep1;
+            cmd1.addVocab(Vocab::encode("ask"));
+            Bottle &content=cmd1.addList().addList();
             content.addString("entity");
             content.addString("==");
             content.addString("table");
 
-            opcPort.write(cmd,rep);
-            if (rep.get(0).asVocab()==ack)
+            opcPort.write(cmd1,rep1);
+            if (rep1.get(0).asVocab()==ack)
             {
-                Bottle *payLoad=rep.get(1).asList()->find("id").asList();
-                if (payLoad!=nullptr)
+                Bottle cmd2,rep2;
+                Bottle *payLoad=rep1.get(1).asList()->find("id").asList();
+                if (payLoad->size()==0)
                 {
-                    int id=payLoad->get(0).asInt();
-
-                    cmd.clear(); rep.clear();
-                    cmd.addVocab(Vocab::encode("set"));
-                    Bottle &content=cmd.addList();
-
-                    Bottle &content_id=content.addList();
-                    content_id.addString("id");
-                    content_id.addInt(id);
-
-                    Bottle &content_table=content.addList();
-                    content_table.addString("height");
-                    content_table.addDouble(table_height);
-                    opcPort.write(cmd,rep);
-                }
-                else
-                {
-                    cmd.clear(); rep.clear();
-                    cmd.addVocab(Vocab::encode("add"));
-                    Bottle &content=cmd.addList();
+                    cmd2.addVocab(Vocab::encode("add"));
+                    Bottle &content=cmd2.addList();
 
                     Bottle &content_entity=content.addList();
                     content_entity.addString("entity");
@@ -407,10 +390,28 @@ class Gateway : public RFModule
                     Bottle &content_table=content.addList();
                     content_table.addString("height");
                     content_table.addDouble(table_height);
-                    opcPort.write(cmd,rep);
                 }
-                ret=(rep.get(0).asVocab()==ack);
+                else
+                {
+                    int id=payLoad->get(0).asInt();
+                    cmd2.addVocab(Vocab::encode("set"));
+                    Bottle &content=cmd2.addList();
+
+                    Bottle &content_id=content.addList();
+                    content_id.addString("id");
+                    content_id.addInt(id);
+
+                    Bottle &content_table=content.addList();
+                    content_table.addString("height");
+                    content_table.addDouble(table_height);
+                }
+                opcPort.write(cmd2,rep2);
+                ret=(rep2.get(0).asVocab()==ack);
             }
+        }
+        if (ret)
+        {
+            yInfo()<<"Table height pushed in OPC";
         }
         return ret;
     }
