@@ -39,6 +39,7 @@ class Gateway : public RFModule
     string robot;
     double period;
     double speed_hand;
+    bool put_table_opc_once;
     double table_height;
     int ack,nack;
     bool interrupting;
@@ -356,7 +357,62 @@ class Gateway : public RFModule
                 }
             }
         }
-        return ret; 
+        return ret;
+    }
+
+    /****************************************************************/
+    bool setTableHeightOPC()
+    {
+        bool ret=false;
+        if (opcPort.getOutputCount()>0)
+        {
+            Bottle cmd,rep;
+            cmd.addVocab(Vocab::encode("ask"));
+            Bottle &content=cmd.addList().addList();
+            content.addString("entity");
+            content.addString("==");
+            content.addString("table");
+
+            opcPort.write(cmd,rep);
+            if (rep.get(0).asVocab()==ack)
+            {
+                Bottle *payLoad=rep.get(1).asList()->find("id").asList();
+                if (payLoad!=nullptr)
+                {
+                    int id=payLoad->get(0).asInt();
+
+                    cmd.clear(); rep.clear();
+                    cmd.addVocab(Vocab::encode("set"));
+                    Bottle &content=cmd.addList();
+
+                    Bottle &content_id=content.addList();
+                    content_id.addString("id");
+                    content_id.addInt(id);
+
+                    Bottle &content_table=content.addList();
+                    content_table.addString("height");
+                    content_table.addDouble(table_height);
+                    opcPort.write(cmd,rep);
+                }
+                else
+                {
+                    cmd.clear(); rep.clear();
+                    cmd.addVocab(Vocab::encode("add"));
+                    Bottle &content=cmd.addList();
+
+                    Bottle &content_entity=content.addList();
+                    content_entity.addString("entity");
+                    content_entity.addString("table");
+
+                    Bottle &content_table=content.addList();
+                    content_table.addString("height");
+                    content_table.addDouble(table_height);
+                    opcPort.write(cmd,rep);
+                }
+                ret=(rep.get(0).asVocab()==ack);
+            }
+        }
+        return ret;
     }
 
     /****************************************************************/
@@ -671,6 +727,7 @@ class Gateway : public RFModule
         nack=Vocab::encode("nack");
         interrupting=false;
         gaze_track=false;
+        put_table_opc_once=false;
 
         // retrieve values from config file
         Bottle &gGeneral=rf.findGroup("general");
@@ -740,6 +797,10 @@ class Gateway : public RFModule
     /****************************************************************/
     bool updateModule() override
     {
+        if (!put_table_opc_once)
+        {
+            put_table_opc_once=setTableHeightOPC();
+        }
         if (gaze_track)
         {
             look(latch_pose.subVector(0,2));
