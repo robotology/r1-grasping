@@ -343,6 +343,11 @@
                 <protocol>fast_tcp</protocol>
         </connection>
         <connection>
+                <from>/iolStateMachineHandler/motor_stop:rpc</from>
+                <to>/action-gateway/motor_stop:rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
                 <from>/iolStateMachineHandler/memory:rpc</from>
                 <to>/memory/rpc</to>
                 <protocol>fast_tcp</protocol>

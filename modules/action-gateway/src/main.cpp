@@ -36,12 +36,41 @@ class Gateway : public RFModule
     RpcClient reachLPort;
     RpcClient reachRPort;
 
+    class StopMotorsPort : public BufferedPort<Bottle>
+    {
+        Gateway *gateway;
+        void onRead(Bottle &command) override
+        {
+            if (gateway!=nullptr)
+            {
+                int cmd=command.get(0).asVocab();
+                if (cmd==Vocab::encode("interrupt"))
+                {
+                    gateway->stopCartesian();
+                    gateway->interrupting=true;
+                }
+                else if (cmd==Vocab::encode("reinstate"))
+                {
+                    gateway->interrupting=false;
+                    gateway->goHome("all");
+                }
+            }
+        };
+    public:
+        StopMotorsPort(Gateway *g) : gateway(g)
+        {
+            useCallback();
+        }
+    } stopMotorsPort;
+    friend class StopMotorSport;
+
     string robot;
     double period;
     double speed_hand;
     bool put_table_opc_once;
     double table_height;
     int ack,nack;
+    bool exiting;
     bool interrupting;
     Vector latch_pose;
     Vector latch_approach;
@@ -222,7 +251,7 @@ class Gateway : public RFModule
             ipos_right_hand->positionMove(home.right_hand.data());
         }
 
-        while (!interrupting)
+        while (!exiting && !interrupting)
         {
             Time::delay(1.0);
             if (checkMotionDonePart(ipos_head) && checkMotionDonePart(ipos_torso) &&
@@ -500,7 +529,7 @@ class Gateway : public RFModule
             ipos->positionMove(hand->data());
         }
 
-        while (!interrupting)
+        while (!exiting && !interrupting)
         {
             Time::delay(1.0);
             if (checkMotionDonePart(ipos))
@@ -694,7 +723,7 @@ class Gateway : public RFModule
             part="Right-arm";
         }
 
-        while (!interrupting && (port.getOutputCount()>0))
+        while (!exiting && !interrupting && (port.getOutputCount()>0))
         {
             Time::delay(std::min(10.0*period,1.0));
 
@@ -715,7 +744,7 @@ class Gateway : public RFModule
             }
         }
         yInfo()<<part<<"movements complete";
-        return (!interrupting);
+        return (!exiting && !interrupting);
     }
 
     /****************************************************************/
@@ -726,6 +755,7 @@ class Gateway : public RFModule
         period=0.1;
         ack=Vocab::encode("ack");
         nack=Vocab::encode("nack");
+        exiting=false;
         interrupting=false;
         gaze_track=false;
         put_table_opc_once=false;
@@ -784,6 +814,7 @@ class Gateway : public RFModule
         gazePort.open("/action-gateway/gaze/rpc");
         reachLPort.open("/action-gateway/reach/left/rpc");
         reachRPort.open("/action-gateway/reach/right/rpc");
+        stopMotorsPort.open("/action-gateway/motor_stop:rpc");
 
         attach(cmdPort);
         return true;
@@ -956,7 +987,7 @@ class Gateway : public RFModule
     /****************************************************************/
     bool interruptModule() override
     {
-        interrupting=true;
+        exiting=true;
         return true;
     }
 
@@ -983,6 +1014,10 @@ class Gateway : public RFModule
         {
             reachRPort.close();
         }
+        if (!stopMotorsPort.isClosed())
+        {
+            stopMotorsPort.close();
+        }
         for (auto &d:drivers)
         {
             if (d.isValid())
@@ -991,6 +1026,11 @@ class Gateway : public RFModule
             }
         }
         return true;
+    }
+
+public:
+    Gateway() : stopMotorsPort(this)
+    {
     }
 };
 
