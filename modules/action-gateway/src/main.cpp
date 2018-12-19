@@ -210,7 +210,7 @@ class Gateway : public RFModule
             ipos_right_arm->setRefSpeeds(spds.data());
             ipos_right_arm->positionMove(home.right_arm.data());
         }
-        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="left_hand")))
+        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_hand")))
         {
             vector<int> modes(home.right_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_hand.size(),numeric_limits<double>::max());
