@@ -35,34 +35,45 @@ class Gateway : public RFModule
     RpcClient gazePort;
     RpcClient reachLPort;
     RpcClient reachRPort;
-
-    class StopMotorsPort : public BufferedPort<Bottle>
+    
+    BufferedPort<Bottle> stopMotorsPort;
+    class StopMotorsProcessor : public TypedReaderCallback<Bottle>,
+                                public PortReader
     {
         Gateway *gateway;
-        void onRead(Bottle &command) override
+        void onRead(Bottle& b) override { }
+        bool read(ConnectionReader& connection) override
         {
-            if (gateway!=nullptr)
+            Bottle command,reply;
+            command.read(connection);
+            int cmd=command.get(0).asVocab();
+            if (cmd==Vocab::encode("interrupt"))
             {
-                int cmd=command.get(0).asVocab();
-                if (cmd==Vocab::encode("interrupt"))
-                {
-                    gateway->stopCartesian();
-                    gateway->interrupted=true;
-                }
-                else if (cmd==Vocab::encode("reinstate"))
-                {
-                    gateway->interrupted=false;
-                    gateway->goHome("all");
-                }
+                gateway->stopCartesian();
+                gateway->interrupted=true;
+                reply.addString("interrupted");
             }
+            else if (cmd==Vocab::encode("reinstate"))
+            {
+                gateway->interrupted=false;
+                gateway->goHome("all");
+                reply.addString("reinstated");
+            }
+            else
+            {
+                reply.addString("command not recognized");
+            }
+            ConnectionWriter *returnToSender=connection.getWriter();
+            if (returnToSender!=nullptr)
+            {
+                reply.write(*returnToSender);
+            }
+            return true;
         };
     public:
-        StopMotorsPort(Gateway *g) : gateway(g)
-        {
-            useCallback();
-        }
-    } stopMotorsPort;
-    friend class StopMotorSport;
+        StopMotorsProcessor(Gateway *g) : gateway(g) { }
+    } stopMotorsProcessor;
+    friend class StopMotorsProcessor;
 
     string robot;
     double period;
@@ -815,6 +826,7 @@ class Gateway : public RFModule
         reachLPort.open("/action-gateway/reach/left/rpc");
         reachRPort.open("/action-gateway/reach/right/rpc");
         stopMotorsPort.open("/action-gateway/motor_stop:rpc");
+        stopMotorsPort.setReplier(stopMotorsProcessor);
 
         attach(cmdPort);
         return true;
@@ -1029,7 +1041,7 @@ class Gateway : public RFModule
     }
 
 public:
-    Gateway() : stopMotorsPort(this)
+    Gateway() : stopMotorsProcessor(this)
     {
     }
 };
