@@ -834,10 +834,22 @@ class Gateway : public RFModule
                 {
                     if (b->size()>=3)
                     {
-                        int u,v;
-                        u=b->get(1).asInt();
-                        v=b->get(2).asInt();
-                        ok=look(u,v);
+                        string type=b->get(0).asString();
+                        if ((type=="cartesian") && (b->size()>=4))
+                        {
+                            Vector x(3);
+                            x[0]=b->get(1).asDouble();
+                            x[1]=b->get(2).asDouble();
+                            x[2]=b->get(3).asDouble();
+                            ok=look(x);
+                        }
+                        else
+                        {
+                            int u,v;
+                            u=b->get(1).asInt();
+                            v=b->get(2).asInt();
+                            ok=look(u,v);
+                        }
                     }
                 }
             }
