@@ -47,11 +47,11 @@ class Gateway : public RFModule
                 if (cmd==Vocab::encode("interrupt"))
                 {
                     gateway->stopCartesian();
-                    gateway->interrupting=true;
+                    gateway->interrupted=true;
                 }
                 else if (cmd==Vocab::encode("reinstate"))
                 {
-                    gateway->interrupting=false;
+                    gateway->interrupted=false;
                     gateway->goHome("all");
                 }
             }
@@ -71,7 +71,7 @@ class Gateway : public RFModule
     double table_height;
     int ack,nack;
     bool exiting;
-    bool interrupting;
+    bool interrupted;
     Vector latch_pose;
     Vector latch_approach;
     string latch_part;
@@ -251,7 +251,7 @@ class Gateway : public RFModule
             ipos_right_hand->positionMove(home.right_hand.data());
         }
 
-        while (!exiting && !interrupting)
+        while (!exiting && !interrupted)
         {
             Time::delay(1.0);
             if (checkMotionDonePart(ipos_head) && checkMotionDonePart(ipos_torso) &&
@@ -529,7 +529,7 @@ class Gateway : public RFModule
             ipos->positionMove(hand->data());
         }
 
-        while (!exiting && !interrupting)
+        while (!exiting && !interrupted)
         {
             Time::delay(1.0);
             if (checkMotionDonePart(ipos))
@@ -723,7 +723,7 @@ class Gateway : public RFModule
             part="Right-arm";
         }
 
-        while (!exiting && !interrupting && (port.getOutputCount()>0))
+        while (!exiting && !interrupted && (port.getOutputCount()>0))
         {
             Time::delay(std::min(10.0*period,1.0));
 
@@ -744,7 +744,7 @@ class Gateway : public RFModule
             }
         }
         yInfo()<<part<<"movements complete";
-        return (!exiting && !interrupting);
+        return (!exiting && !interrupted);
     }
 
     /****************************************************************/
@@ -756,7 +756,7 @@ class Gateway : public RFModule
         ack=Vocab::encode("ack");
         nack=Vocab::encode("nack");
         exiting=false;
-        interrupting=false;
+        interrupted=false;
         gaze_track=false;
         put_table_opc_once=false;
 
@@ -847,7 +847,7 @@ class Gateway : public RFModule
         Bottle payLoad;
 
         int cmd=command.get(0).asVocab();
-        if (cmd==Vocab::encode("home"))
+        if (cmd==Vocab::encode("home") && !interrupted)
         {
             string part="all";
             if (command.size()>=2)
@@ -856,7 +856,7 @@ class Gateway : public RFModule
             }
             ok=goHome(part);
         }
-        else if ((cmd==Vocab::encode("look")) && (command.size()>=2))
+        else if ((cmd==Vocab::encode("look")) && (command.size()>=2) && !interrupted)
         {
             Value &target=command.get(1);
             if (target.isList())
@@ -901,7 +901,7 @@ class Gateway : public RFModule
                 }
             }
         }
-        else if ((cmd==Vocab::encode("grasp")) && (command.size()>=3))
+        else if ((cmd==Vocab::encode("grasp")) && (command.size()>=3) && !interrupted)
         {
             Vector pose,approach;
             string part="select";
@@ -939,7 +939,7 @@ class Gateway : public RFModule
             ok=grasp(pose,approach,part);
             gaze_track=false;
         }
-        else if (cmd==Vocab::encode("drop"))
+        else if (cmd==Vocab::encode("drop") && !interrupted)
         {
             ok=drop();
         }
