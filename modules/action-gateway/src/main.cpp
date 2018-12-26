@@ -20,6 +20,7 @@
 #include <yarp/dev/all.h>
 #include <yarp/sig/all.h>
 #include <yarp/math/Math.h>
+#include <yarp/math/Rand.h>
 
 using namespace std;
 using namespace yarp::os;
@@ -32,6 +33,7 @@ class Gateway : public RFModule
 {
     RpcServer cmdPort;
     RpcClient opcPort;
+    RpcClient depthPort;
     RpcClient gazePort;
     RpcClient reachLPort;
     RpcClient reachRPort;
@@ -78,8 +80,6 @@ class Gateway : public RFModule
     string robot;
     double period;
     double speed_hand;
-    bool put_table_opc_once;
-    double table_height;
     int ack,nack;
     bool exiting;
     bool interrupted;
@@ -108,6 +108,13 @@ class Gateway : public RFModule
         double lift;
     } grasping;
 
+    struct {
+        double default_height;
+        int num_pixels;
+        vector<double> pixels_bounds;
+        double ransac_threshold;
+    } table;
+
     vector<PolyDriver> drivers;
     IControlMode     *imod_head,*imod_torso,*imod_left_arm,*imod_left_hand,
                      *imod_right_arm,*imod_right_hand;
@@ -115,17 +122,24 @@ class Gateway : public RFModule
                      *ipos_right_arm,*ipos_right_hand;
 
     /****************************************************************/
-    bool getVectorInfo(const Bottle &opt, const string &part, vector<double> &v,
-                       IPositionControl *ipos)
+    bool getVectorInfo(const Bottle &opt, const string &tag, vector<double> &v,
+                       IPositionControl *ipos=nullptr)
     {
         v.clear();
-        if (Bottle *b=opt.find(part).asList())
+        if (Bottle *b=opt.find(tag).asList())
         {
-            int nAxes;
-            ipos->getAxes(&nAxes);
-            v.assign((size_t)nAxes,0.0);
-
-            size_t len=std::min(v.size(),b->size());
+            size_t len=b->size();
+            if (ipos!=nullptr)
+            {
+                int nAxes;
+                ipos->getAxes(&nAxes);
+                v.assign((size_t)nAxes,0.0);
+                len=std::min(len,v.size());
+            }
+            else
+            {
+                v.assign(len,0.0);
+            }
             for (size_t i=0; i<len; i++)
             {
                 v[i]=b->get(i).asDouble();
@@ -401,7 +415,52 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool setTableHeightOPC()
+    bool getTableHeightOPC(double &h)
+    {
+        bool ret=false;
+        if (opcPort.getOutputCount()>0)
+        {
+            Bottle cmd1,rep1;
+            cmd1.addVocab(Vocab::encode("ask"));
+            Bottle &content=cmd1.addList().addList();
+            content.addString("entity");
+            content.addString("==");
+            content.addString("table");
+
+            opcPort.write(cmd1,rep1);
+            if (rep1.get(0).asVocab()==ack)
+            {
+                Bottle *payLoad=rep1.get(1).asList()->find("id").asList();
+                if (payLoad->size()>0)
+                {
+                    int id=payLoad->get(0).asInt();
+
+                    Bottle cmd2,rep2;
+                    cmd2.addVocab(Vocab::encode("get"));
+                    Bottle &content=cmd2.addList();
+
+                    Bottle &content_id=content.addList();
+                    content_id.addString("id");
+                    content_id.addInt(id);
+
+                    opcPort.write(cmd2,rep2);
+                    if (rep2.get(0).asVocab()==ack)
+                    {
+                        Bottle *payLoad=rep2.get(1).asList();
+                        if (payLoad->check("height"))
+                        {
+                            h=payLoad->find("height").asDouble();
+                            ret=true;
+                        }
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+
+    /****************************************************************/
+    bool setTableHeightOPC(const double h)
     {
         bool ret=false;
         if (opcPort.getOutputCount()>0)
@@ -429,7 +488,7 @@ class Gateway : public RFModule
 
                     Bottle &content_table=content.addList();
                     content_table.addString("height");
-                    content_table.addDouble(table_height);
+                    content_table.addDouble(h);
                 }
                 else
                 {
@@ -443,7 +502,7 @@ class Gateway : public RFModule
 
                     Bottle &content_table=content.addList();
                     content_table.addString("height");
-                    content_table.addDouble(table_height);
+                    content_table.addDouble(h);
                 }
                 opcPort.write(cmd2,rep2);
                 ret=(rep2.get(0).asVocab()==ack);
@@ -759,6 +818,72 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    bool ransac(const vector<double> &data, double &result)
+    {
+        for (auto &i:data)
+        {
+            result=0.0;
+            size_t n=0;
+            for (auto &j:data)
+            {
+                if (abs(j-i)<=table.ransac_threshold)
+                {
+                    result+=j;
+                    n++;
+                }
+            }
+            if (n>data.size()/2)
+            {
+                result/=n;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /****************************************************************/
+    bool calibTable()
+    {
+        if (goHome("all"))
+        {
+            Bottle cmd,rep;
+            cmd.addString("Points");
+            for (size_t i=0; i<table.num_pixels; i++)
+            {
+                cmd.addInt((int)Rand::scalar(table.pixels_bounds[0],table.pixels_bounds[2]));
+                cmd.addInt((int)Rand::scalar(table.pixels_bounds[1],table.pixels_bounds[3]));
+            }
+            if (depthPort.getOutputCount()>0)
+            {
+                if (depthPort.write(cmd,rep))
+                {
+                    vector<double> z;
+                    Vector x(3);
+                    for (size_t i=0; i<rep.size(); i+=3)
+                    {
+                        x[0]=rep.get(i).asDouble();
+                        x[1]=rep.get(i+1).asDouble();
+                        x[2]=rep.get(i+2).asDouble();
+                        if (norm(x)>0)
+                        {
+                            z.push_back(x[2]);
+                        }
+                    }
+                    double h;
+                    if (ransac(z,h))
+                    {
+                        if (setTableHeightOPC(h))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /****************************************************************/
     bool configure(ResourceFinder &rf) override
     {
         // default values
@@ -769,7 +894,6 @@ class Gateway : public RFModule
         exiting=false;
         interrupted=false;
         gaze_track=false;
-        put_table_opc_once=false;
 
         // retrieve values from config file
         Bottle &gGeneral=rf.findGroup("general");
@@ -778,7 +902,6 @@ class Gateway : public RFModule
             robot=gGeneral.check("robot",Value(robot)).asString();
             period=gGeneral.check("period",Value(period)).asDouble();
             speed_hand=gGeneral.check("speed_hand",Value(10.0)).asDouble();
-            table_height=gGeneral.check("table_height",Value(0.7)).asDouble();
         }
 
         drivers=vector<PolyDriver>(6);
@@ -820,15 +943,26 @@ class Gateway : public RFModule
             grasping.lift=gGrasping.check("lift",Value(0.1)).asDouble();
         }
 
+        Bottle &gTable=rf.findGroup("table");
+        if (!gTable.isNull())
+        {
+            table.default_height=gTable.check("default_height",Value(0.7)).asDouble();
+            table.num_pixels=gTable.check("num_pixels",Value(100)).asInt();
+            getVectorInfo(gTable,"pixels_bounds",table.pixels_bounds);
+            table.ransac_threshold=gTable.check("ransac_threshold",Value(0.01)).asDouble();
+        }
+
         cmdPort.open("/action-gateway/cmd:io");
         opcPort.open("/action-gateway/opc/rpc");
+        depthPort.open("/action-gateway/depth/rpc");
         gazePort.open("/action-gateway/gaze/rpc");
         reachLPort.open("/action-gateway/reach/left/rpc");
         reachRPort.open("/action-gateway/reach/right/rpc");
         stopMotorsPort.open("/action-gateway/motor_stop:rpc");
         stopMotorsPort.setReplier(stopMotorsProcessor);
-
         attach(cmdPort);
+
+        Rand::init();
         return true;
     }
 
@@ -841,10 +975,6 @@ class Gateway : public RFModule
     /****************************************************************/
     bool updateModule() override
     {
-        if (!put_table_opc_once)
-        {
-            put_table_opc_once=setTableHeightOPC();
-        }
         if (gaze_track)
         {
             look(latch_pose.subVector(0,2));
@@ -974,15 +1104,30 @@ class Gateway : public RFModule
 
             ok=ask(payLoad,pose,part);
         }
+        else if (cmd==Vocab::encode("calibrate"))
+        {
+            if (command.size()>=2)
+            {
+                if (command.get(1).asVocab()==Vocab::encode("table"))
+                {
+                    ok=calibTable();
+                }
+            }
+        }
         else if (cmd==Vocab::encode("get"))
         {
             if (command.size()>=2)
             {
                 if (command.get(1).asVocab()==Vocab::encode("table"))
                 {
+                    double h=table.default_height;
+                    if (!getTableHeightOPC(h))
+                    {
+                        setTableHeightOPC(h);
+                    }
                     Bottle &table_reply=reply.addList();
                     table_reply.addString("table_height");
-                    table_reply.addDouble(table_height);
+                    table_reply.addDouble(h);
                     return true;
                 }
             }
@@ -1013,6 +1158,10 @@ class Gateway : public RFModule
         if (opcPort.asPort().isOpen())
         {
             opcPort.close();
+        }
+        if (depthPort.asPort().isOpen())
+        {
+            depthPort.close();
         }
         if (gazePort.asPort().isOpen())
         {
@@ -1065,3 +1214,4 @@ int main(int argc, char *argv[])
     Gateway gateway;
     return gateway.runModule(rf);
 }
+
