@@ -198,7 +198,8 @@ class Gateway : public RFModule
         if (!part.empty() && (part!="all") && (part!="head") && (part!="gaze") &&
             (part!="torso") && (part!="left") && (part!="right") &&
             (part!="left_arm") && (part!="left_hand") &&
-            (part!="right_arm") && (part!="right_hand"))
+            (part!="right_arm") && (part!="right_hand") &&
+            (part!="arms"))
         {
             yError()<<"Unrecognized part requested for homing";
             return false;
@@ -217,7 +218,8 @@ class Gateway : public RFModule
             ipos_head->setRefSpeeds(spds.data());
             ipos_head->positionMove(home.head.data());
         }
-        if (!home.torso.empty() && (part.empty() || (part=="all") || (part=="torso") || (part=="left") || (part=="right")))
+        if (!home.torso.empty() && (part.empty() || (part=="all") || (part=="torso") || (part=="left_arm") || (part=="right_arm") ||
+            (part=="left") || (part=="right") || (part=="arms")))
         {
             vector<int> modes(home.torso.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.torso.size(),numeric_limits<double>::max());
@@ -229,7 +231,7 @@ class Gateway : public RFModule
             ipos_torso->setRefSpeeds(spds.data());
             ipos_torso->positionMove(home.torso.data());
         }
-        if (!home.left_arm.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_arm")))
+        if (!home.left_arm.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_arm") || (part=="arms")))
         {
             vector<int> modes(home.left_arm.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.left_arm.size(),numeric_limits<double>::max());
@@ -241,7 +243,7 @@ class Gateway : public RFModule
             ipos_left_arm->setRefSpeeds(spds.data());
             ipos_left_arm->positionMove(home.left_arm.data());
         }
-        if (!home.left_hand.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_hand")))
+        if (!home.left_hand.empty() && (part.empty() || (part=="all") || (part=="left") || (part=="left_hand") || (part=="arms")))
         {
             vector<int> modes(home.left_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.left_hand.size(),numeric_limits<double>::max());
@@ -252,7 +254,7 @@ class Gateway : public RFModule
             ipos_left_hand->setRefSpeeds(spds.data());
             ipos_left_hand->positionMove(home.left_hand.data());
         }
-        if (!home.right_arm.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_arm")))
+        if (!home.right_arm.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_arm") || (part=="arms")))
         {
             vector<int> modes(home.right_arm.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_arm.size(),numeric_limits<double>::max());
@@ -264,7 +266,7 @@ class Gateway : public RFModule
             ipos_right_arm->setRefSpeeds(spds.data());
             ipos_right_arm->positionMove(home.right_arm.data());
         }
-        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_hand")))
+        if (!home.right_hand.empty() && (part.empty() || (part=="all") || (part=="right") || (part=="right_hand") || (part=="arms")))
         {
             vector<int> modes(home.right_hand.size(),VOCAB_CM_POSITION);
             vector<double> accs(home.right_hand.size(),numeric_limits<double>::max());
@@ -417,7 +419,6 @@ class Gateway : public RFModule
     /****************************************************************/
     bool getTableHeightOPC(double &h)
     {
-        bool ret=false;
         if (opcPort.getOutputCount()>0)
         {
             Bottle cmd1,rep1;
@@ -450,13 +451,13 @@ class Gateway : public RFModule
                         if (payLoad->check("height"))
                         {
                             h=payLoad->find("height").asDouble();
-                            ret=true;
+                            return true;
                         }
                     }
                 }
             }
         }
-        return ret;
+        return false;
     }
 
     /****************************************************************/
