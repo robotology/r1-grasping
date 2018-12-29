@@ -822,19 +822,21 @@ class Gateway : public RFModule
     {
         for (auto &i:data)
         {
-            result=0.0;
+            double val=0.0;
             size_t n=0;
             for (auto &j:data)
             {
                 if (abs(j-i)<=table.ransac_threshold)
                 {
-                    result+=j;
+                    val+=j;
                     n++;
                 }
             }
+            val/=n;
+
             if (n>data.size()/2)
             {
-                result/=n;
+                result=val;
                 return true;
             }
         }
