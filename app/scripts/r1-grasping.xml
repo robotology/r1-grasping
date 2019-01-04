@@ -228,7 +228,7 @@
         </module>
         <module>
                 <name>yarpview</name>
-                <parameters>--name /iolViewer/manager/snapshot --x 370 --y 720 --p 50 --compact</parameters>
+                <parameters>--name /iolViewer/snapshot --x 370 --y 720 --p 50 --compact</parameters>
                 <node>r1-console-cuda</node>
         </module>
         <module>
@@ -309,7 +309,7 @@
         </connection>
         <connection>
                 <from>/iolStateMachineHandler/img:o</from>
-                <to>/iolViewer/manager/snapshot</to>
+                <to>/iolViewer/snapshot</to>
                 <protocol>fast_tcp</protocol>
         </connection>
         <connection>
@@ -360,6 +360,16 @@
         <connection>
                 <from>/action-gateway/depth/rpc</from>
                 <to>/depthCamera/rpc:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/depthCamera/rgbImage:o</from>
+                <to>/action-gateway/img:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/img:o</from>
+                <to>/iolViewer/snapshot</to>
                 <protocol>fast_tcp</protocol>
         </connection>
         <connection>
