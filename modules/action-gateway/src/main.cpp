@@ -77,6 +77,9 @@ class Gateway : public RFModule
     } stopMotorsProcessor;
     friend class StopMotorsProcessor;
 
+    BufferedPort<ImageOf<PixelRgb>> imgInPort;
+    BufferedPort<ImageOf<PixelRgb>> imgOutPort;
+
     string robot;
     double period;
     double speed_hand;
@@ -819,17 +822,20 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool ransac(const vector<double> &data, double &result)
+    bool ransac(const vector<double> &data, vector<bool> &consensus_set,
+                double &result)
     {
-        for (auto &i:data)
+        for (size_t i=0; i<data.size(); i++)
         {
+            consensus_set.assign(data.size(),false);
             double val=0.0;
             size_t n=0;
-            for (auto &j:data)
+            for (size_t j=0; j<data.size(); j++)
             {
-                if (abs(j-i)<=table.ransac_threshold)
+                if (abs(data[j]-data[i])<=table.ransac_threshold)
                 {
-                    val+=j;
+                    val+=data[j];
+                    consensus_set[j]=true;
                     n++;
                 }
             }
@@ -849,13 +855,27 @@ class Gateway : public RFModule
     {
         if (goHome("all"))
         {
+            ImageOf<PixelRgb> *img=nullptr;
+            if (imgInPort.getOutputCount()>0)
+            {
+                img=imgInPort.read(false);
+            }
+
+            vector<vector<int>> pixels;
+            vector<int> pixel(2);
+
             Bottle cmd,rep;
             cmd.addString("Points");
             for (size_t i=0; i<table.num_pixels; i++)
             {
-                cmd.addInt((int)Rand::scalar(table.pixels_bounds[0],table.pixels_bounds[2]));
-                cmd.addInt((int)Rand::scalar(table.pixels_bounds[1],table.pixels_bounds[3]));
+                pixel[0]=(int)Rand::scalar(table.pixels_bounds[0],table.pixels_bounds[2]);
+                pixel[1]=(int)Rand::scalar(table.pixels_bounds[1],table.pixels_bounds[3]);
+                pixels.push_back(pixel);
+
+                cmd.addInt(pixel[0]);
+                cmd.addInt(pixel[1]);
             }
+
             if (depthPort.getOutputCount()>0)
             {
                 if (depthPort.write(cmd,rep))
@@ -872,9 +892,27 @@ class Gateway : public RFModule
                             z.push_back(x[2]);
                         }
                     }
+
+                    vector<bool> consensus_set;
                     double h;
-                    if (ransac(z,h))
+                    if (ransac(z,consensus_set,h))
                     {
+                        if ((imgOutPort.getOutputCount()>0) && (img!=nullptr))
+                        {
+                            for (size_t i=0; i<pixels.size(); i++)
+                            {
+                                if (consensus_set[i])
+                                {
+                                    draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],4);
+                                }
+                                else
+                                {
+                                    draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],4);
+                                }
+                            }
+                            imgOutPort.prepare()=*img;
+                            imgOutPort.writeStrict();
+                        }
                         if (setTableHeightOPC(h))
                         {
                             return true;
@@ -956,6 +994,8 @@ class Gateway : public RFModule
         }
 
         cmdPort.open("/action-gateway/cmd:io");
+        attach(cmdPort);
+
         opcPort.open("/action-gateway/opc/rpc");
         depthPort.open("/action-gateway/depth/rpc");
         gazePort.open("/action-gateway/gaze/rpc");
@@ -963,7 +1003,9 @@ class Gateway : public RFModule
         reachRPort.open("/action-gateway/reach/right/rpc");
         stopMotorsPort.open("/action-gateway/motor_stop:rpc");
         stopMotorsPort.setReplier(stopMotorsProcessor);
-        attach(cmdPort);
+        
+        imgInPort.open("/action-gateway/img:i");
+        imgOutPort.open("/action-gateway/img:o");
 
         Rand::init();
         return true;
@@ -1181,6 +1223,14 @@ class Gateway : public RFModule
         if (!stopMotorsPort.isClosed())
         {
             stopMotorsPort.close();
+        }
+        if (!imgInPort.isClosed())
+        {
+            imgInPort.close();
+        }
+        if (!imgOutPort.isClosed())
+        {
+            imgOutPort.close();
         }
         for (auto &d:drivers)
         {
