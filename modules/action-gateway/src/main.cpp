@@ -897,15 +897,21 @@ class Gateway : public RFModule
                     bool ok=ransac(z,consensus_set,h);
                     if ((imgOutPort.getOutputCount()>0) && (img!=nullptr))
                     {
+                        int cx=(int)((table.pixels_bounds[2]+table.pixels_bounds[0])/2.0);
+                        int cy=(int)((table.pixels_bounds[3]+table.pixels_bounds[1])/2.0);
+                        int w=(int)((table.pixels_bounds[2]-table.pixels_bounds[0])/2.0);
+                        int h=(int)((table.pixels_bounds[3]-table.pixels_bounds[1])/2.0);
+                        draw::addRectangleOutline(*img,PixelRgb(0,0,255),cx,cy,w,h);
+
                         for (size_t i=0; i<pixels.size(); i++)
                         {
                             if (ok && consensus_set[i])
                             {
-                                draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],4);
+                                draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],2);
                             }
                             else
                             {
-                                draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],4);
+                                draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],2);
                             }
                         }
                         imgOutPort.prepare()=*img;
