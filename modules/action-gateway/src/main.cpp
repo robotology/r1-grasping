@@ -893,30 +893,27 @@ class Gateway : public RFModule
                         }
                     }
 
-                    vector<bool> consensus_set;
-                    double h;
-                    if (ransac(z,consensus_set,h))
+                    vector<bool> consensus_set; double h;
+                    bool ok=ransac(z,consensus_set,h);
+                    if ((imgOutPort.getOutputCount()>0) && (img!=nullptr))
                     {
-                        if ((imgOutPort.getOutputCount()>0) && (img!=nullptr))
+                        for (size_t i=0; i<pixels.size(); i++)
                         {
-                            for (size_t i=0; i<pixels.size(); i++)
+                            if (ok && consensus_set[i])
                             {
-                                if (consensus_set[i])
-                                {
-                                    draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],4);
-                                }
-                                else
-                                {
-                                    draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],4);
-                                }
+                                draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],4);
                             }
-                            imgOutPort.prepare()=*img;
-                            imgOutPort.writeStrict();
+                            else
+                            {
+                                draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],4);
+                            }
                         }
-                        if (setTableHeightOPC(h))
-                        {
-                            return true;
-                        }
+                        imgOutPort.prepare()=*img;
+                        imgOutPort.writeStrict();
+                    }
+                    if (ok)
+                    {
+                        return setTableHeightOPC(h);
                     }
                 }
             }
