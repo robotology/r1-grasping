@@ -114,7 +114,7 @@ class Gateway : public RFModule
     struct {
         double default_height;
         int num_pixels;
-        vector<double> pixels_bounds;
+        vector<int> pixels_bounds;
         double ransac_threshold;
     } table;
 
@@ -125,7 +125,8 @@ class Gateway : public RFModule
                      *ipos_right_arm,*ipos_right_hand;
 
     /****************************************************************/
-    bool getVectorInfo(const Bottle &opt, const string &tag, vector<double> &v,
+    template<typename T>
+    bool getVectorInfo(const Bottle &opt, const string &tag, vector<T> &v,
                        IPositionControl *ipos=nullptr)
     {
         v.clear();
@@ -136,16 +137,16 @@ class Gateway : public RFModule
             {
                 int nAxes;
                 ipos->getAxes(&nAxes);
-                v.assign((size_t)nAxes,0.0);
+                v.assign((size_t)nAxes,0);
                 len=std::min(len,v.size());
             }
             else
             {
-                v.assign(len,0.0);
+                v.assign(len,0);
             }
             for (size_t i=0; i<len; i++)
             {
-                v[i]=b->get(i).asDouble();
+                v[i]=(T)b->get(i).asDouble();
             }
         }
         return !v.empty();
@@ -897,10 +898,10 @@ class Gateway : public RFModule
                     bool ok=ransac(z,consensus_set,h);
                     if ((imgOutPort.getOutputCount()>0) && (img!=nullptr))
                     {
-                        int cx=(int)((table.pixels_bounds[2]+table.pixels_bounds[0])/2.0);
-                        int cy=(int)((table.pixels_bounds[3]+table.pixels_bounds[1])/2.0);
-                        int w=(int)((table.pixels_bounds[2]-table.pixels_bounds[0])/2.0);
-                        int h=(int)((table.pixels_bounds[3]-table.pixels_bounds[1])/2.0);
+                        int cx=(table.pixels_bounds[2]+table.pixels_bounds[0])>>1;
+                        int cy=(table.pixels_bounds[3]+table.pixels_bounds[1])>>1;
+                        int w=(table.pixels_bounds[2]-table.pixels_bounds[0])>>1;
+                        int h=(table.pixels_bounds[3]-table.pixels_bounds[1])>>1;
                         draw::addRectangleOutline(*img,PixelRgb(0,0,255),cx,cy,w,h);
 
                         for (size_t i=0; i<pixels.size(); i++)
