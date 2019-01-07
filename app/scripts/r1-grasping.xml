@@ -359,7 +359,7 @@
         </connection>
         <connection>
                 <from>/action-gateway/depth/rpc</from>
-                <to>/depthCamera/rpc:i</to>
+                <to>/vision3d-gateway/rpc</to>
                 <protocol>fast_tcp</protocol>
         </connection>
         <connection>

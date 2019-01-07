@@ -857,7 +857,7 @@ class Gateway : public RFModule
         if (goHome("all"))
         {
             ImageOf<PixelRgb> *img=nullptr;
-            if (imgInPort.getOutputCount()>0)
+            if (imgInPort.getInputCount()>0)
             {
                 img=imgInPort.read(false);
             }
@@ -881,6 +881,7 @@ class Gateway : public RFModule
             {
                 if (depthPort.write(cmd,rep))
                 {
+                    vector<vector<int>> pixels_used;
                     vector<double> z;
                     Vector x(3);
                     for (size_t i=0; i<rep.size(); i+=3)
@@ -890,6 +891,7 @@ class Gateway : public RFModule
                         x[2]=rep.get(i+2).asDouble();
                         if (norm(x)>0)
                         {
+                            pixels_used.push_back(pixels[i/3]);
                             z.push_back(x[2]);
                         }
                     }
@@ -904,15 +906,15 @@ class Gateway : public RFModule
                         int h=(table.pixels_bounds[3]-table.pixels_bounds[1])>>1;
                         draw::addRectangleOutline(*img,PixelRgb(0,0,255),cx,cy,w,h);
 
-                        for (size_t i=0; i<pixels.size(); i++)
+                        for (size_t i=0; i<consensus_set.size(); i++)
                         {
                             if (ok && consensus_set[i])
                             {
-                                draw::addCrossHair(*img,PixelRgb(0,255,0),pixels[i][0],pixels[i][1],2);
+                                draw::addCrossHair(*img,PixelRgb(0,255,0),pixels_used[i][0],pixels_used[i][1],2);
                             }
                             else
                             {
-                                draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels[i][0],pixels[i][1],2);
+                                draw::addCircleOutline(*img,PixelRgb(255,0,0),pixels_used[i][0],pixels_used[i][1],2);
                             }
                         }
                         imgOutPort.prepare()=*img;
