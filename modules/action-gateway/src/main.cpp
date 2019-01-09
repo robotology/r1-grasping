@@ -811,15 +811,17 @@ class Gateway : public RFModule
                 {
                     if (rep.get(1).asInt()>0)
                     {
-                        break;
+                        yInfo()<<part<<"movements complete";
+                        return true;
                     }
                 }
                 else
                     break;
             }
+            else
+                break;
         }
-        yInfo()<<part<<"movements complete";
-        return (!exiting && !interrupted);
+        return false;
     }
 
     /****************************************************************/
