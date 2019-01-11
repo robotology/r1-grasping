@@ -5,8 +5,8 @@
 project(vision3d-gateway)
 find_package(YARP 3.1.0 REQUIRED COMPONENTS OS sig math dev)
 
-add_definitions(-D_USE_MATH_DEFINES)
 add_executable(${PROJECT_NAME} src/main.cpp)
+target_compile_definitions(${PROJECT_NAME} PRIVATE _USE_MATH_DEFINES)
 target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES})
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
