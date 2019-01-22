@@ -763,22 +763,28 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool pouringApproach(const Vector &target, const Vector &neck_position,
+    bool pouringApproach(const Vector &source, const Vector &destination,
                          const string &part="select")
     {
-        if ((target.length()<3) || (neck_position.length()!=3))
+        /* source = where the liquid comes from expressed in the grabber frame (hand frame)
+         *          for example, the neck of the currently grasped bottle
+         * destination = where the liquid should be poured expressed in the reference frame
+         *               for example, the top of a glass
+         */
+
+        if ((source.length()<3) || (destination.length()!=3))
         {
             yError()<<"Invalid parameters given for pouring approach";
             return false;
         }
 
-        string part_=choosePart(part, target);
+        string part_=choosePart(part, destination);
 
-        // Neck position in ref frame
-        Vector final_neck_position(3);
-        final_neck_position[0]=target[0];
-        final_neck_position[1]=target[1]+(part_=="left"?1:-1)*pouring.H_offset;
-        final_neck_position[2]=target[2]+pouring.V_offset;
+        // Final source position in ref frame
+        Vector final_source_position(3);
+        final_source_position[0]=destination[0];
+        final_source_position[1]=destination[1]+(part_=="left"?1:-1)*pouring.H_offset;
+        final_source_position[2]=destination[2]+pouring.V_offset;
 
         Vector o1(4);
         o1[0]=1.0;
@@ -797,7 +803,7 @@ class Gateway : public RFModule
         Vector hand_orientation=dcm2axis(hand_rotation);
 
         // Hand position in ref frame
-        Vector hand_position=final_neck_position-hand_rotation*neck_position;
+        Vector hand_position=final_source_position-hand_rotation*source;
 
         Vector hand_pose(7);
         hand_pose.setSubvector(0,hand_position);
@@ -808,9 +814,14 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool pouringMotion(const Vector &neck_position, double angle, const string &part="select")
+    bool pouringMotion(const Vector &source, double angle, const string &part="select")
     {
-        if ((neck_position.length()!=3) || (part!="right" && part!="left"))
+        /* source = where the liquid comes from expressed in the grabber frame (hand frame)
+         *          for example, the neck of the currently grasped bottle
+         * angle = angle of rotation of the pouring motion
+         */
+
+        if ((source.length()!=3) || (part!="right" && part!="left"))
         {
             yError()<<"Invalid parameters given for pouring motion";
             return false;
@@ -832,11 +843,11 @@ class Gateway : public RFModule
         Vector hand_orientation=dcm2axis(hand_rotation);
 
         // Position of center of rotation in ref frame
-        Vector current_neck_position=current_hand_rotation*neck_position+current_hand_position;
+        Vector current_source_position=current_hand_rotation*source+current_hand_position;
 
         // Pouring transformation expressed in ref frame
         Matrix transform_rotation=current_hand_rotation*R*current_hand_rotation.transposed();
-        Vector transform_translation=current_neck_position-transform_rotation*current_neck_position;
+        Vector transform_translation=current_source_position-transform_rotation*current_source_position;
 
         // Final hand pose in ref frame
         Vector hand_pose(7);
@@ -848,9 +859,15 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool pour(const Vector &target, const Vector &neck_position)
+    bool pour(const Vector &source, const Vector &destination)
     {
-        if ((target.length()!=3) || (neck_position.length()!=3))
+        /* source = where the liquid comes from expressed in the grabber frame (hand frame)
+         *          for example, the neck of the currently grasped bottle
+         * destination = where the liquid should be poured expressed in the reference frame
+         *               for example, the top of a glass
+         */
+
+        if ((source.length()!=3) || (destination.length()!=3))
         {
             yError()<<"Invalid dimensions of parameters given for pouring";
             return false;
@@ -863,13 +880,13 @@ class Gateway : public RFModule
         }
 
         yInfo() << "start pouring approach";
-        if(pouringApproach(target, neck_position, latch_part))
+        if(pouringApproach(source, destination, latch_part))
         {
             yInfo() << "pouring approach done, start pouring motion";
-            if(pouringMotion(neck_position, pouring.final_inclin-pouring.init_inclin, latch_part))
+            if(pouringMotion(source, pouring.final_inclin-pouring.init_inclin, latch_part))
             {
                 yInfo() << "pouring motion done, start pouring stop motion";
-                if(pouringMotion(neck_position, -(pouring.final_inclin-pouring.init_inclin), latch_part))
+                if(pouringMotion(source, -(pouring.final_inclin-pouring.init_inclin), latch_part))
                 {
                     yInfo() << "pouring stop motion done, start homing";
                     return reach(processApproach(latch_pose,latch_approach),latch_part);
@@ -1274,25 +1291,32 @@ class Gateway : public RFModule
         }
         else if ((cmd==Vocab::encode("pour")) && (command.size()>=3) && !interrupted)
         {
-            Vector neck_position,target;
+            /* command format: pour ("source" x y z) ("destination" x y z)
+             * source = where the liquid comes from expressed in the grabber frame (hand frame)
+             *          for example, the neck of the currently grasped bottle
+             * destination = where the liquid should be poured expressed in the reference frame
+             *               for example, the top of a glass
+             */
+
+            Vector source, destination;
 
             if (Bottle *b1=command.get(1).asList())
             {
                 for (size_t i=1; i<b1->size(); i++)
                 {
-                    neck_position.push_back(b1->get(i).asDouble());
+                    source.push_back(b1->get(i).asDouble());
                 }
             }
             if (Bottle *b2=command.get(2).asList())
             {
                 for (size_t i=1; i<b2->size(); i++)
                 {
-                    target.push_back(b2->get(i).asDouble());
+                    destination.push_back(b2->get(i).asDouble());
                 }
             }
 
             gaze_track=true;
-            ok=pour(target, neck_position);
+            ok=pour(source, destination);
             gaze_track=false;
         }
         else if (cmd==Vocab::encode("drop") && !interrupted)
