@@ -862,7 +862,6 @@ class Gateway : public RFModule
             return false;
         }
 
-
         yInfo() << "start pouring approach";
         if(pouringApproach(target, neck_position, latch_part))
         {
