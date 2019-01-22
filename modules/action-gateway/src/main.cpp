@@ -772,7 +772,7 @@ class Gateway : public RFModule
             return false;
         }
 
-        std:string part_=choosePart(part, target);
+        string part_=choosePart(part, target);
 
         // Neck position in ref frame
         Vector final_neck_position(3);
@@ -807,6 +807,7 @@ class Gateway : public RFModule
         return reach(pouring.current_hand_pose,part_);
     }
 
+    /****************************************************************/
     bool pouringMotion(const Vector &neck_position, double angle, const string &part="select")
     {
         if ((neck_position.length()!=3) || (part!="right" && part!="left"))
@@ -1125,7 +1126,7 @@ class Gateway : public RFModule
         if (!gPouring.isNull())
         {
             pouring.H_offset=gPouring.check("H_offset",Value(0.01)).asDouble();
-            pouring.V_offset=gPouring.check("",Value(0.02)).asDouble();
+            pouring.V_offset=gPouring.check("V_offset",Value(0.02)).asDouble();
             pouring.init_inclin=gPouring.check("init_inclin",Value(30)).asDouble();
             pouring.final_inclin=gPouring.check("final_inclin",Value(120)).asDouble();
         }
@@ -1274,20 +1275,20 @@ class Gateway : public RFModule
         }
         else if ((cmd==Vocab::encode("pour")) && (command.size()>=3) && !interrupted)
         {
-            Vector target,neck_position;
+            Vector neck_position,target;
 
             if (Bottle *b1=command.get(1).asList())
             {
                 for (size_t i=1; i<b1->size(); i++)
                 {
-                    target.push_back(b1->get(i).asDouble());
+                    neck_position.push_back(b1->get(i).asDouble());
                 }
             }
             if (Bottle *b2=command.get(2).asList())
             {
                 for (size_t i=1; i<b2->size(); i++)
                 {
-                    neck_position.push_back(b2->get(i).asDouble());
+                    target.push_back(b2->get(i).asDouble());
                 }
             }
 
