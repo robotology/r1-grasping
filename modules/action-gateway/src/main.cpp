@@ -112,6 +112,14 @@ class Gateway : public RFModule
     } grasping;
 
     struct {
+        double H_offset;
+        double V_offset;
+        double init_inclin;
+        double final_inclin;
+        Vector current_hand_pose;
+    } pouring;
+
+    struct {
         double default_height;
         int num_pixels;
         vector<int> pixels_bounds;
@@ -755,6 +763,128 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    bool pouringApproach(const Vector &target, const Vector &neck_position,
+                         const string &part="select")
+    {
+        if ((target.length()<3) || (neck_position.length()!=3))
+        {
+            yError()<<"Invalid parameters given for pouring approach";
+            return false;
+        }
+
+        string part_=choosePart(part, target);
+
+        // Neck position in ref frame
+        Vector final_neck_position(3);
+        final_neck_position[0]=target[0];
+        final_neck_position[1]=target[1]+(part_=="left"?1:-1)*pouring.H_offset;
+        final_neck_position[2]=target[2]+pouring.V_offset;
+
+        Vector o1(4);
+        o1[0]=1.0;
+        o1[1]=o1[2]=0.0;
+        o1[3]=-M_PI/2.0;
+        Matrix R1=axis2dcm(o1).submatrix(0,2,0,2);
+
+        Vector o2(4);
+        o2[0]=1.0;
+        o2[1]=o2[2]=0.0;
+        o2[3]=(part_=="left"?1:-1)*M_PI/180*pouring.init_inclin;
+        Matrix R2=axis2dcm(o2).submatrix(0,2,0,2);
+
+        // Hand orientation
+        Matrix hand_rotation=R1*R2;
+        Vector hand_orientation=dcm2axis(hand_rotation);
+
+        // Hand position in ref frame
+        Vector hand_position=final_neck_position-hand_rotation*neck_position;
+
+        Vector hand_pose(7);
+        hand_pose.setSubvector(0,hand_position);
+        hand_pose.setSubvector(3, hand_orientation);
+
+        pouring.current_hand_pose = hand_pose;
+        return reach(pouring.current_hand_pose,part_);
+    }
+
+    /****************************************************************/
+    bool pouringMotion(const Vector &neck_position, double angle, const string &part="select")
+    {
+        if ((neck_position.length()!=3) || (part!="right" && part!="left"))
+        {
+            yError()<<"Invalid parameters given for pouring motion";
+            return false;
+        }
+
+        // Rotation in hand frame
+        Vector o(4);
+        o[0]=1.0;
+        o[1]=o[2]=0.0;
+        o[3]=(part=="left"?1:-1)*M_PI/180*angle;
+        Matrix R=axis2dcm(o).submatrix(0,2,0,2);
+
+        // Current hand position and orientation in ref frame
+        Vector current_hand_position=pouring.current_hand_pose.subVector(0,2);
+        Matrix current_hand_rotation=axis2dcm(pouring.current_hand_pose.subVector(3,6)).submatrix(0,2,0,2);
+
+        // Final hand orientation in ref frame
+        Matrix hand_rotation=current_hand_rotation*R;
+        Vector hand_orientation=dcm2axis(hand_rotation);
+
+        // Position of center of rotation in ref frame
+        Vector current_neck_position=current_hand_rotation*neck_position+current_hand_position;
+
+        // Pouring transformation expressed in ref frame
+        Matrix transform_rotation=current_hand_rotation*R*current_hand_rotation.transposed();
+        Vector transform_translation=current_neck_position-transform_rotation*current_neck_position;
+
+        // Final hand pose in ref frame
+        Vector hand_pose(7);
+        hand_pose.setSubvector(0,transform_rotation*current_hand_position+transform_translation);
+        hand_pose.setSubvector(3, hand_orientation);
+
+        pouring.current_hand_pose = hand_pose;
+        return reach(hand_pose,part);
+    }
+
+    /****************************************************************/
+    bool pour(const Vector &target, const Vector &neck_position)
+    {
+        if ((target.length()!=3) || (neck_position.length()!=3))
+        {
+            yError()<<"Invalid dimensions of parameters given for pouring";
+            return false;
+        }
+
+        if (latch_part!="right" && latch_part!="left")
+        {
+            yError()<<"no object was previously grasped";
+            return false;
+        }
+
+
+        yInfo() << "start pouring approach";
+        if(pouringApproach(target, neck_position, latch_part))
+        {
+            yInfo() << "pouring approach done, start pouring motion";
+            if(pouringMotion(neck_position, pouring.final_inclin-pouring.init_inclin, latch_part))
+            {
+                yInfo() << "pouring motion done, start pouring stop motion";
+                if(pouringMotion(neck_position, -(pouring.final_inclin-pouring.init_inclin), latch_part))
+                {
+                    yInfo() << "pouring stop motion done, start homing";
+                    return reach(processApproach(latch_pose,latch_approach),latch_part);
+                }
+                else yInfo() << "pouring stop motion failed";
+            }
+            else yInfo() << "pouring motion failed";
+        }
+        else yInfo() << "pouring approach failed";
+
+        return false;
+    }
+
+    /****************************************************************/
     bool drop()
     {
         if (reach(latch_pose,latch_part))
@@ -992,6 +1122,15 @@ class Gateway : public RFModule
             grasping.lift=gGrasping.check("lift",Value(0.1)).asDouble();
         }
 
+        Bottle &gPouring=rf.findGroup("pouring");
+        if (!gPouring.isNull())
+        {
+            pouring.H_offset=gPouring.check("H_offset",Value(0.01)).asDouble();
+            pouring.V_offset=gPouring.check("V_offset",Value(0.02)).asDouble();
+            pouring.init_inclin=gPouring.check("init_inclin",Value(30)).asDouble();
+            pouring.final_inclin=gPouring.check("final_inclin",Value(120)).asDouble();
+        }
+
         Bottle &gTable=rf.findGroup("table");
         if (!gTable.isNull())
         {
@@ -1132,6 +1271,29 @@ class Gateway : public RFModule
 
             gaze_track=true;
             ok=grasp(pose,approach,part);
+            gaze_track=false;
+        }
+        else if ((cmd==Vocab::encode("pour")) && (command.size()>=3) && !interrupted)
+        {
+            Vector neck_position,target;
+
+            if (Bottle *b1=command.get(1).asList())
+            {
+                for (size_t i=1; i<b1->size(); i++)
+                {
+                    neck_position.push_back(b1->get(i).asDouble());
+                }
+            }
+            if (Bottle *b2=command.get(2).asList())
+            {
+                for (size_t i=1; i<b2->size(); i++)
+                {
+                    target.push_back(b2->get(i).asDouble());
+                }
+            }
+
+            gaze_track=true;
+            ok=pour(target, neck_position);
             gaze_track=false;
         }
         else if (cmd==Vocab::encode("drop") && !interrupted)
