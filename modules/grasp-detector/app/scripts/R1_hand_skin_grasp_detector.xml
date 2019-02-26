@@ -10,7 +10,7 @@ Connect to /grasp-detector/rpc:i to check if object is grasped in the robot hand
 
     <module>
         <name>skinManager</name>
-        <parameters>--from skinManAll.ini</parameters>
+        <parameters>--from skinManHands.ini</parameters>
         <dependencies>
             <port>/cer/skin/left_hand_skin</port>
             <port>/cer/skin/right_hand_skin</port>
