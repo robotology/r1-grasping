@@ -1,6 +1,6 @@
 <application>
-    <name>app_skin</name>
-    <description> Modules + connections to read skin sensors data from logs, running the data compensation and detect if something is pressed on the sensor.
+    <name>R1 Grasping Grasp Detector</name>
+    <description> Modules + connections to read the hand skin sensors, running the data compensation and detect if something is pressed in the hand.
 Connect to /grasp-detector/rpc:i to check if object is grasped in the robot hand.
     </description>
 
