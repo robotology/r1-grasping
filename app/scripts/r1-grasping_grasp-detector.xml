@@ -1,0 +1,74 @@
+<application>
+    <name>R1 Grasping Grasp Detector</name>
+    <description> Modules + connections to read the hand skin sensors, running the data compensation and detect if something is pressed in the hand.
+Connect to /grasp-detector/rpc:i to check if object is grasped in the robot hand.
+    </description>
+
+<!-- Modules -->
+
+    <!-- skinManager -->
+
+    <module>
+        <name>skinManager</name>
+        <parameters>--from skinManHands.ini</parameters>
+        <dependencies>
+            <port>/cer/skin/left_hand_skin</port>
+            <port>/cer/skin/right_hand_skin</port>
+        </dependencies>
+        <node>localhost</node>
+    </module>
+
+    <!-- skinManagerGui -->
+
+    <module>
+        <name>skinManagerGui</name>
+        <dependencies>
+            <port>/skinManager/info:o</port>
+            <port>/skinManager/monitor:o</port>
+            <port>/skinManager/rpc</port>
+        </dependencies>
+        <node>localhost</node>
+    </module>
+
+    <!-- grasp-detector -->
+
+    <module>
+        <name>grasp-detector</name>
+        <parameters>--context grasp-detector --from config.ini</parameters>
+        <dependencies>
+            <port>/skinManager/skin_events:o</port>
+        </dependencies>
+        <node>localhost</node>
+    </module>
+
+<!-- Connections -->
+
+    <!-- skinManagerGui -->
+
+        <connection>
+            <from>/skinManager/info:o</from>
+            <to>/skinManagerGui/info:i</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/skinManager/monitor:o</from>
+            <to>/skinManagerGui/monitor:i</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/skinManagerGui/rpc:o</from>
+            <to>/skinManager/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+    <!-- grasp-detector -->
+
+        <connection>
+            <from>/skinManager/skin_events:o</from>
+            <to>/grasp-detector/skin_events:i</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+</application>
