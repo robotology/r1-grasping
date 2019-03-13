@@ -780,36 +780,86 @@ class Gateway : public RFModule
 
         string part_=choosePart(part, destination);
 
-        // Final source position in ref frame
-        Vector final_source_position(3);
-        final_source_position[0]=destination[0];
-        final_source_position[1]=destination[1]+(part_=="left"?1:-1)*pouring.H_offset;
-        final_source_position[2]=destination[2]+pouring.V_offset;
+        int part_sign=(part_=="left"?1:-1);
 
-        Vector o1(4);
-        o1[0]=1.0;
-        o1[1]=o1[2]=0.0;
-        o1[3]=-M_PI/2.0;
-        Matrix R1=axis2dcm(o1).submatrix(0,2,0,2);
+        // Find easiest hand orientation for pouring
 
-        Vector o2(4);
-        o2[0]=1.0;
-        o2[1]=o2[2]=0.0;
-        o2[3]=(part_=="left"?1:-1)*M_PI/180*pouring.init_inclin;
-        Matrix R2=axis2dcm(o2).submatrix(0,2,0,2);
+        Vector o_tmp(4);
+        o_tmp[0]=1.0;
+        o_tmp[1]=0.0;
+        o_tmp[2]=0.0;
+        o_tmp[3]=-M_PI/2.0;
+        Matrix refR=axis2dcm(o_tmp).submatrix(0,2,0,2);
 
-        // Hand orientation
-        Matrix hand_rotation=R1*R2;
-        Vector hand_orientation=dcm2axis(hand_rotation);
+        const int nb_test_orientation=9;
+        vector<Vector> hand_poses(nb_test_orientation, Vector(7));
+        vector<double> reaching_errors(nb_test_orientation);
 
-        // Hand position in ref frame
-        Vector hand_position=final_source_position-hand_rotation*source;
+        for(int i=0 ; i<nb_test_orientation ; i++)
+        {
+            // Add rotation around source
+            o_tmp[0]=0.0;
+            o_tmp[1]=1.0;
+            o_tmp[2]=0.0;
+            o_tmp[3]=part_sign*(-M_PI/2.0+i*M_PI/(nb_test_orientation-1));
+            Matrix R1=axis2dcm(o_tmp).submatrix(0,2,0,2);
 
-        Vector hand_pose(7);
-        hand_pose.setSubvector(0,hand_position);
-        hand_pose.setSubvector(3, hand_orientation);
+            // Add initial inclination
+            o_tmp[0]=1.0;
+            o_tmp[1]=0.0;
+            o_tmp[2]=0.0;
+            o_tmp[3]=part_sign*M_PI/180*pouring.init_inclin;
+            Matrix R2=axis2dcm(o_tmp).submatrix(0,2,0,2);
 
-        pouring.current_hand_pose = hand_pose;
+            // Hand orientation
+            Matrix hand_rotation=refR*R1*R2;
+            Vector hand_orientation=dcm2axis(hand_rotation);
+
+            // Final source position in ref frame
+            Vector final_source_position(destination);
+
+            final_source_position[0] += -part_sign*pouring.H_offset*hand_rotation(1,0);
+            final_source_position[1] += part_sign*pouring.H_offset*hand_rotation(0,0);
+            final_source_position[2] += pouring.V_offset;
+
+            // Hand position in ref frame
+            Vector hand_position=final_source_position-hand_rotation*source;
+
+            // Final hand pose
+            hand_poses.at(i).setSubvector(0,hand_position);
+            hand_poses.at(i).setSubvector(3, hand_orientation);
+
+            // Ask kinematics feasibility
+            Bottle achieved_bottle;
+            ask(achieved_bottle, hand_poses.at(i), part_);
+
+            // Compute error
+            Bottle *achieved_pose_bottle=achieved_bottle.find("x").asList();
+            if(achieved_pose_bottle==nullptr)
+                reaching_errors.at(i)=std::numeric_limits<double>::max();
+            else
+            {
+                Vector achieved_pose(7);
+                for(int j=0 ; j<7 ; j++)
+                    achieved_pose[j]=achieved_pose_bottle->get(j).asDouble();
+
+                Vector achieved_source_position=achieved_pose.subVector(0,2)+axis2dcm(achieved_pose.subVector(3,6)).submatrix(0,2,0,2)*source;
+                reaching_errors.at(i)=norm(achieved_source_position-final_source_position);
+            }
+        }
+
+        int min_index=0;
+        double min_value =reaching_errors.front();
+        for(int i=1 ; i<reaching_errors.size() ; i++)
+        {
+            if(reaching_errors.at(i) < min_value)
+            {
+                min_index=i;
+                min_value = reaching_errors.at(i);
+            }
+        }
+
+        pouring.current_hand_pose = hand_poses.at(min_index);
         return reach(pouring.current_hand_pose,part_);
     }
 
