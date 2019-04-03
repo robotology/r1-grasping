@@ -935,11 +935,16 @@ class Gateway : public RFModule
             yInfo() << "pouring approach done, start pouring motion";
             if(pouringMotion(source, pouring.final_inclin-pouring.init_inclin, latch_part))
             {
+                // Wait a bit for the pouring 
+                Time::delay(5.0);
+
                 yInfo() << "pouring motion done, start pouring stop motion";
                 if(pouringMotion(source, -(pouring.final_inclin-pouring.init_inclin), latch_part))
                 {
+                    Vector pose_end=latch_pose;
+                    pose_end[2]+=grasping.lift;
                     yInfo() << "pouring stop motion done, start homing";
-                    return reach(processApproach(latch_pose,latch_approach),latch_part);
+                    return reach(pose_end,latch_part);
                 }
                 else yInfo() << "pouring stop motion failed";
             }
@@ -1365,12 +1370,13 @@ class Gateway : public RFModule
                 }
             }
 
-            gaze_track=true;
+            look(destination);
+
             ok=pour(source, destination);
-            gaze_track=false;
         }
         else if (cmd==Vocab::encode("drop") && !interrupted)
         {
+            look(latch_pose.subVector(0,2));
             ok=drop();
         }
         else if ((cmd==Vocab::encode("ask")) && (command.size()>=2))
