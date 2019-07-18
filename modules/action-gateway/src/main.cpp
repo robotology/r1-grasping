@@ -660,7 +660,7 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    Bottle prepareMobileGraspingTargets(const Vector &pose, const Vector &approach) const
+    Bottle prepareMobileGraspingTargets(const Vector &pose, const Vector &approach, const Vector &noise=Vector(2,0.0)) const
     {
         Bottle target;
         Bottle &target_info=target.addList();
@@ -674,6 +674,10 @@ class Gateway : public RFModule
         target_list.addList().read(approachPose);
         target_list.addList().read(pose);
         target_list.addList().read(liftPose);
+
+        Bottle &margin_info=target.addList();
+        margin_info.addString("margin");
+        margin_info.addList().read(cat(Vector(3,noise[0]), Vector(3,noise[1])));
 
         return target;
     }
@@ -736,7 +740,7 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
-    bool askMobileGrasp(Bottle &payLoad, const Vector &pose, const Vector &approach, const string &part="select")
+    bool askMobileGrasp(Bottle &payLoad, const Vector &pose, const Vector &approach, const string &part="select", const Vector &noise=Vector(2,0.0))
     {
         if (pose.length()<7)
         {
@@ -756,7 +760,7 @@ class Gateway : public RFModule
         cmd.addVocab(Vocab::encode("askLocal"));
         Bottle &cmd_info=cmd.addList();
         cmd_info.append(prepareReachingParams());
-        cmd_info.append(prepareMobileGraspingTargets(pose, approach));
+        cmd_info.append(prepareMobileGraspingTargets(pose, approach, noise));
         if (port->write(cmd,rep))
         {
             yInfo()<<"cmd" << cmd.toString();
@@ -1488,7 +1492,20 @@ class Gateway : public RFModule
             string part="select";
             part=command.get(3).asString();
 
-            ok=askMobileGrasp(payLoad,pose,approach,part);
+            Vector noise(2,0.0);
+            if (command.size()>=4)
+            {
+                if (Bottle *b1=command.get(3).asList())
+                {
+                    if (b1->size() == 2)
+                    {
+                        noise[0] = b1->get(0).asDouble();
+                        noise[1] = b1->get(1).asDouble();
+                    }
+                }
+            }
+
+            ok=askMobileGrasp(payLoad,pose,approach,part,noise);
         }
         else if (cmd==Vocab::encode("calibrate"))
         {
