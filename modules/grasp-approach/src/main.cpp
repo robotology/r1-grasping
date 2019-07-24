@@ -83,6 +83,12 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
             return false;
         }
 
+        if(!LookAtObject(objectPosition,"map"))
+        {
+            yError() << "Cannot look at the object";
+            return false;
+        }
+
         return true;
     }
 
@@ -115,6 +121,12 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         if(!NavigateNearObject(optimalBasePose, objectPosition, dist))
         {
             yError() << "Cannot navigate to approach object";
+            return false;
+        }
+
+        if(!LookAtObject(objectPosition,"map"))
+        {
+            yError() << "Cannot look at the object";
             return false;
         }
 
@@ -472,6 +484,11 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
 
         if(graspPort.getOutputCount()>0)
         {
+            if(verbosity > 1)
+            {
+                yDebug() << "Using graspProcessor to find best object orientation";
+            }
+
             if(frame=="map")
             {
                 objectPosition = ConvertToLocalFrame(objectPosition);
@@ -539,6 +556,11 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         }
         else
         {
+            if(verbosity > 1)
+            {
+                yDebug() << "Missing connection to graspProcessor, using simple method to find object orientation";
+            }
+
             if(frame=="local")
             {
                 objectPosition = ConvertToMapFrame(objectPosition);
@@ -876,6 +898,11 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool NavigateNearObject(Map2DLocation baseGoal, const Vector &objectPosition, double dist, bool *goalReached=nullptr)
     {
+        if(verbosity > 1)
+        {
+            yDebug() << "NavigateNearObject received base position" << baseGoal.toString() << " and object position" << objectPosition.toString();
+        }
+
         if(objectPosition.size() < 2)
         {
             yError() << "Invalid vector size in NavigateNearObject";
@@ -916,6 +943,11 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
             }
 
             yarp::os::Time::delay(0.1);
+        }
+
+        if(verbosity > 1)
+        {
+            yDebug() << "Stopped at location" << loc.toString();
         }
 
         inav->stopNavigation();
@@ -961,7 +993,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool LookAtObject(Vector objectPosition, const string &frame)
     {
-        if(mobileReachingPort.getOutputCount() < 1)
+        if(actionPort.getOutputCount() < 1)
         {
             yError() << "Missing connection to action gateway";
             return false;
