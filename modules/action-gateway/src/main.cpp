@@ -1495,7 +1495,7 @@ class Gateway : public RFModule
             Vector noise(2,0.0);
             if (command.size()>=4)
             {
-                if (Bottle *b1=command.get(3).asList())
+                if (Bottle *b1=command.get(4).asList())
                 {
                     if (b1->size() == 2)
                     {
