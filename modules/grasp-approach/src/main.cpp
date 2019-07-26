@@ -727,83 +727,95 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
                 yInfo() << "Using grasp processor to plan optimal base pose";
             }
 
-            Bottle cmd;
-            cmd.addString("ask_best_base_pose");
-            if(frame=="map")
+            for(int i=0; i<11; i++)
             {
-                cmd.addList().read(ConvertToLocalFrame(objectPose));
-            }
-            else if(frame!="map")
-            {
-                yError() << "Invalid frame argument, should be \"map\" or \"local\"";
-                return false;
-            }
-            else
-            {
-                cmd.addList().read(objectPose);
-            }
-            cmd.addString("right");
-
-            if(verbosity>1)
-            {
-                yDebug() << "Sending to grasp processor:" << cmd.toString();
-            }
-
-            Bottle reply;
-            if(!graspPort.write(cmd, reply))
-            {
-                yError() << "Could not communicate with grasp processor";
-                return false;
-            }
-
-            if(verbosity>1)
-            {
-                yDebug() << "Received reply from grasp processor:" << reply.toString();
-            }
-
-            if(reply.size() < 1)
-            {
-                yError() << "Empty reply size from grasp processor";
-                return false;
-            }
-
-            if(reply.get(0).asVocab() != Vocab::encode("ack"))
-            {
-                yError() << "Object is unreachable";
-                return false;
-            }
-
-            if(reply.size() < 2)
-            {
-                yError() << "Invalid reply size from grasp processor";
-                return false;
-            }
-
-            if (Bottle *joints = reply.get(1).asList())
-            {
-                if(joints->size() < 3)
+                Bottle cmd;
+                cmd.addString("ask_best_base_pose");
+                if(frame=="map")
                 {
-                    yError() << "Invalid joint vector dimension returned by grasp processor";
+                    cmd.addList().read(ConvertToLocalFrame(objectPose));
+                }
+                else if(frame!="map")
+                {
+                    yError() << "Invalid frame argument, should be \"map\" or \"local\"";
+                    return false;
+                }
+                else
+                {
+                    cmd.addList().read(objectPose);
+                }
+                cmd.addString("right");
+
+                Vector noise(2);
+                noise[0] = 0.05-0.005*i;
+                noise[1] = 0;
+                cmd.addList().read(noise);
+
+                if(verbosity>1)
+                {
+                    yDebug() << "Sending to grasp processor:" << cmd.toString();
+                }
+
+                Bottle reply;
+                if(!graspPort.write(cmd, reply))
+                {
+                    yError() << "Could not communicate with grasp processor";
                     return false;
                 }
 
-                Vector basePose(7, 0.0);
-                basePose[0]=joints->get(0).asDouble();
-                basePose[1]=joints->get(1).asDouble();
-                basePose[5] = 1.0;
-                basePose[6] = M_PI/180.0*joints->get(2).asDouble();
+                if(verbosity>1)
+                {
+                    yDebug() << "Received reply from grasp processor:" << reply.toString();
+                }
 
-                basePose = ConvertToMapFrame(basePose);
-                optimalBasePose.x = basePose[0];
-                optimalBasePose.y = basePose[1];
-                optimalBasePose.theta = 180.0/M_PI*basePose[5]*basePose[6];
-                return true;
+                if(reply.size() < 1)
+                {
+                    yError() << "Empty reply size from grasp processor";
+                    return false;
+                }
+
+                if(reply.get(0).asVocab() != Vocab::encode("ack"))
+                {
+                    yError() << "Planning tentative" << i << "with" << 5-0.5*i << "cm margin failed, trying with lower margin.";
+                    continue;
+                }
+
+                if(reply.size() < 2)
+                {
+                    yError() << "Invalid reply size from grasp processor";
+                    return false;
+                }
+
+                if (Bottle *joints = reply.get(1).asList())
+                {
+                    if(joints->size() < 3)
+                    {
+                        yError() << "Invalid joint vector dimension returned by grasp processor";
+                        return false;
+                    }
+
+                    Vector basePose(7, 0.0);
+                    basePose[0]=joints->get(0).asDouble();
+                    basePose[1]=joints->get(1).asDouble();
+                    basePose[5] = 1.0;
+                    basePose[6] = M_PI/180.0*joints->get(2).asDouble();
+
+                    basePose = ConvertToMapFrame(basePose);
+                    optimalBasePose.x = basePose[0];
+                    optimalBasePose.y = basePose[1];
+                    optimalBasePose.theta = 180.0/M_PI*basePose[5]*basePose[6];
+                    return true;
+                }
+                else
+                {
+                    yError() << "Invalid reply from grasp processor:" << reply.toString();
+                    return false;
+                }
             }
-            else
-            {
-                yError() << "Invalid reply from grasp processor:" << reply.toString();
-                return false;
-            }
+
+            yError() << "Object is unreachable";
+            return false;
+                
         }
         else if(mobileReachingPort.getOutputCount() > 0)
         {
