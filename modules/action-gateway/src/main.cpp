@@ -676,8 +676,11 @@ class Gateway : public RFModule
         target_list.addList().read(liftPose);
 
         Bottle &margin_info=target.addList();
-        margin_info.addString("margin");
-        margin_info.addList().read(cat(Vector(3,noise[0]), Vector(3,noise[1])));
+        margin_info.addString("marginG");
+        Vector noiseP(3, 0.0);
+        noiseP[0]=noise[0];
+        noiseP[1]=noise[0];
+        margin_info.addList().read(cat(noiseP, Vector(3,noise[1])));
 
         return target;
     }
