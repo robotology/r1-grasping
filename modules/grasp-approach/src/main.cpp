@@ -937,6 +937,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         NavigationStatusEnum navStatus;
         inav->getNavigationStatus(navStatus);
 
+        double displayTime = Time::now();
         while( (norm(goalVec-locVec) > dist) &&
                navStatus!=navigation_status_goal_reached &&
                navStatus!=navigation_status_idle &&
@@ -949,12 +950,11 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
             locVec[0] = loc.x;
             locVec[1] = loc.y;
 
-            if(verbosity > 1)
+            if(verbosity > 1 && (Time::now()-displayTime)>1)
             {
+                displayTime = Time::now();
                 yDebug() << "Desired stop distance=" << dist << "\tStatus" << (int)navStatus << "\t Current distance=" << norm(goalVec-locVec);
             }
-
-            yarp::os::Time::delay(0.1);
         }
 
         if(verbosity > 1)
