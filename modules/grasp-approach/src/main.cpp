@@ -39,7 +39,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     RpcClient vision3DPort;
     RpcClient OPCdetectionPort;
     BufferedPort<Bottle> detectionPort;
-    RpcClient graspPort;
+    RpcClient graspPortOPC;
+    RpcClient graspPortAFAR;
     RpcClient actionPort;
 
     PolyDriver        navDriver;
@@ -48,6 +49,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     IMap2D*           imap;
 
     int verbosity;
+    bool lastUsedOPCtoRetrieveObject;
 
     /****************************************************************/
     bool ApproachObjectName(const string &object, const string &objectOPC, double dist)
@@ -293,6 +295,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     {
         if(RetrieveObjectPositionOPC(object, objectPosition))
         {
+            lastUsedOPCtoRetrieveObject = true;
             if(verbosity>1)
             {
                 yDebug() << "Using OPC detector to retrieve object 3D position:" << objectPosition.toString();
@@ -301,6 +304,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         }
         else if(RetrieveObjectPositionAFAR(object, objectPosition))
         {
+            lastUsedOPCtoRetrieveObject = false;
             if(verbosity>1)
             {
                 yDebug() << "Using afar detector to retrieve object 3D position:" << objectPosition.toString();
@@ -501,13 +505,39 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
 
         objectOrientation.resize(4,0.0);
 
-        if(graspPort.getOutputCount()>0)
+        RpcClient *activeGraspPort=nullptr;
+
+        if(!lastUsedOPCtoRetrieveObject && graspPortAFAR.getOutputCount()>0)
         {
+            activeGraspPort=&graspPortAFAR;
+
+            if(verbosity > 1)
+            {
+                yDebug() << "Using graspProcessorAFAR to find best object orientation";
+            }
+        }
+        else if(lastUsedOPCtoRetrieveObject && graspPortOPC.getOutputCount()>0)
+        {
+            activeGraspPort=&graspPortOPC;
+
             if(verbosity > 1)
             {
                 yDebug() << "Using graspProcessor to find best object orientation";
             }
+        }
+        else if(graspPortAFAR.getOutputCount()>0)
+        {
+            activeGraspPort=&graspPortAFAR;
+            yWarning() << "Using graspProcessorAFAR to find best object orientation, but AFAR detection was not used to find the object";
+        }
+        else if(graspPortOPC.getOutputCount()>0)
+        {
+            activeGraspPort=&graspPortOPC;
+            yWarning() << "Using graspProcessor to find best object orientation, but OPC detection was not used to find the object";
+        }
 
+        if(activeGraspPort)
+        {
             if(frame=="map")
             {
                 objectPosition = ConvertToLocalFrame(objectPosition);
@@ -530,7 +560,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
             cmd.addString("right");
 
             Bottle reply;
-            graspPort.write(cmd, reply);
+            activeGraspPort->write(cmd, reply);
 
             if(reply.size() < 1)
             {
@@ -736,13 +766,29 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
             return false;
         }
 
-        if(graspPort.getOutputCount() > 0)
-        {
-            if(verbosity>0)
-            {
-                yInfo() << "Using grasp processor to plan optimal base pose";
-            }
+        RpcClient *activeGraspPort=nullptr;
 
+        if(graspPortAFAR.getOutputCount()>0)
+        {
+            activeGraspPort=&graspPortAFAR;
+
+            if(verbosity > 0)
+            {
+                yInfo() << "Using graspProcessorAFAR to plan optimal base pose";
+            }
+        }
+        else if(graspPortOPC.getOutputCount()>0)
+        {
+            activeGraspPort=&graspPortOPC;
+
+            if(verbosity > 0)
+            {
+                yInfo() << "Using graspProcessorOPC to plan optimal base pose";
+            }
+        }
+
+        if(activeGraspPort)
+        {
             for(int i=0; i<11; i++)
             {
                 Bottle cmd;
@@ -773,7 +819,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
                 }
 
                 Bottle reply;
-                if(!graspPort.write(cmd, reply))
+                if(!activeGraspPort->write(cmd, reply))
                 {
                     yError() << "Could not communicate with grasp processor";
                     return false;
@@ -1187,7 +1233,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         vision3DPort.open("/"+this->getName()+"/vision3d-gateway/rpc:o");
         OPCdetectionPort.open("/"+this->getName()+"/OPCdetection/rpc:o");
         detectionPort.open("/"+this->getName()+"/detection:i");
-        graspPort.open("/"+this->getName()+"/grasp-processor/rpc:o");
+        graspPortOPC.open("/"+this->getName()+"/grasp-processor-OPC/rpc:o");
+        graspPortAFAR.open("/"+this->getName()+"/grasp-processor-AFAR/rpc:o");
         actionPort.open("/"+this->getName()+"/action-gateway/rpc:o");
 
         // Map
@@ -1231,6 +1278,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         rpcPort.open("/"+this->getName()+"/rpc:i");
         this->yarp().attachAsServer(rpcPort);
 
+        lastUsedOPCtoRetrieveObject=true;
+
         return true;
     }
 
@@ -1262,7 +1311,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         vision3DPort.interrupt();
         OPCdetectionPort.interrupt();
         detectionPort.interrupt();
-        graspPort.interrupt();
+        graspPortOPC.interrupt();
+        graspPortAFAR.interrupt();
         actionPort.interrupt();
 
         return true;
@@ -1276,7 +1326,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         vision3DPort.close();
         OPCdetectionPort.close();
         detectionPort.close();
-        graspPort.close();
+        graspPortOPC.close();
+        graspPortAFAR.close();
         actionPort.close();
 
         return true;
