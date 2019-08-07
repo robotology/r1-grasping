@@ -52,6 +52,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool ApproachObjectName(const string &object, const string &objectOPC, double dist)
     {
+        yDebug() << "ApproachObjectName(" << object << "," << objectOPC << "," << dist << ") called.";
+
         // Get object position
         Vector objectPosition(3);
         if(!RetrieveObjectPosition(object, objectPosition))
@@ -95,6 +97,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool ApproachObjectPosition(double x, double y, double z, double dist, const string &frame)
     {
+        yDebug() << "ApproachObjectPosition(" << x << "," << y << "," << z << "," << dist << "," << frame << ") called.";
+
         // Get object position
         Vector objectPosition(3);
         objectPosition[0] = x;
@@ -136,6 +140,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     Bottle PlanApproachObjectName(const string &object, const string &objectOPC)
     {
+        yDebug() << "PlanApproachObjectName(" << object << "," << objectOPC << ") called.";
+
         Bottle reply;
         reply.addVocab(Vocab::encode("many"));
 
@@ -170,8 +176,17 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         reply.addString("Success");
         reply.addString("Grasp pose in map:");
         reply.addString(objectPose.toString());
-        reply.addString("Base pose:");
+        reply.addString("Base pose in map:");
         reply.addString(optimalBasePose.toString());
+        reply.addString("Grasp pose in local:");
+        reply.addString(ConvertToLocalFrame(objectPose).toString());
+        reply.addString("Base pose in local:");
+        Vector baseMap(7, 0.0);
+        baseMap[0]=optimalBasePose.x;
+        baseMap[1]=optimalBasePose.y;
+        baseMap[5]=1.0;
+        baseMap[6]=M_PI/180.0*optimalBasePose.theta;
+        reply.addString(ConvertToLocalFrame(baseMap).toString());
 
         return reply;
     }
@@ -179,6 +194,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     Bottle PlanApproachObjectPosition(double x, double y, double z, const string &frame)
     {
+        yDebug() << "PlanApproachObjectPosition(" << x << "," << y << "," << z << "," << frame << ") called.";
+
         Bottle reply;
         reply.addVocab(Vocab::encode("many"));
 
@@ -220,6 +237,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool ContinuousApproachObjectName(const string &object, const string &objectOPC, double step)
     {
+        yDebug() << "ContinuousApproachObjectName(" << object << "," << objectOPC << "," << step << ") called.";
+
         bool goalReached = false;
         while(!goalReached)
         {
@@ -556,10 +575,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         }
         else
         {
-            if(verbosity > 1)
-            {
-                yDebug() << "Missing connection to graspProcessor, using simple method to find object orientation";
-            }
+            yWarning() << "Missing connection to graspProcessor, using simple method to find object orientation, this should only be used for debugging";
 
             if(frame=="local")
             {
