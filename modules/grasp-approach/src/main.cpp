@@ -272,19 +272,19 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
     /****************************************************************/
     bool RetrieveObjectPosition(const string &object, Vector &objectPosition)
     {
-        if(RetrieveObjectPositionAFAR(object, objectPosition))
-        {
-            if(verbosity>1)
-            {
-                yDebug() << "Using afar detector to retrieve object 3D position:" << objectPosition.toString();
-            }
-            return true;
-        }
-        else if(RetrieveObjectPositionOPC(object, objectPosition))
+        if(RetrieveObjectPositionOPC(object, objectPosition))
         {
             if(verbosity>1)
             {
                 yDebug() << "Using OPC detector to retrieve object 3D position:" << objectPosition.toString();
+            }
+            return true;
+        }
+        else if(RetrieveObjectPositionAFAR(object, objectPosition))
+        {
+            if(verbosity>1)
+            {
+                yDebug() << "Using afar detector to retrieve object 3D position:" << objectPosition.toString();
             }
             return true;
         }
