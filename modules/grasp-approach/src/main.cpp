@@ -1152,8 +1152,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         O[3] = M_PI/180.0*loc.theta;
         Matrix Hd=axis2dcm(O);
         Vector T(3,0.0);
-        T[0] = loc.x+0.044*cos(O[3]);
-        T[1] = loc.y+0.044*sin(O[3]);
+        T[0] = loc.x;
+        T[1] = loc.y;
 
         Vector xM;
 
@@ -1189,8 +1189,8 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
         O[2] = 1.0;
         O[3] = M_PI/180.0*loc.theta;
         Matrix Hd = axis2dcm(O);
-        Hd[0][3] = loc.x+0.044*cos(O[3]);
-        Hd[1][3] = loc.y+0.044*sin(O[3]);
+        Hd[0][3] = loc.x;
+        Hd[1][3] = loc.y;
 
         Hd = SE3inv(Hd);
 
