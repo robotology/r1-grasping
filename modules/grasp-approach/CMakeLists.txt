@@ -13,4 +13,6 @@ target_link_libraries(${PROJECT_NAME} ${YARP_LIBRARIES})
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
 file(GLOB ini app/conf/*.ini)
+file(GLOB xml app/scripts/*.xml)
 yarp_install(FILES ${ini} DESTINATION ${ICUBCONTRIB_CONTEXTS_INSTALL_DIR}/${PROJECT_NAME})
+yarp_install(FILES ${xml} DESTINATION ${ICUBCONTRIB_APPLICATIONS_INSTALL_DIR})

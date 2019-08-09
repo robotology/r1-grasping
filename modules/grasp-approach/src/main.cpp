@@ -522,7 +522,7 @@ class GraspApproach : public GraspApproach_IDL, public RFModule
 
             if(verbosity > 1)
             {
-                yDebug() << "Using graspProcessor to find best object orientation";
+                yDebug() << "Using graspProcessorOPC to find best object orientation";
             }
         }
         else if(graspPortAFAR.getOutputCount()>0)
