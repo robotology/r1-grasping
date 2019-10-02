@@ -1,0 +1,530 @@
+<application>
+<name>Demo mobile manipulation - IOL</name>
+
+        <dependencies>
+        </dependencies>
+
+        <module>
+                <name>yarplogger</name>
+                <parameters>--start</parameters>
+                <node>r1-console-linux</node>
+        </module>
+        <module>
+                <name>yarpdev</name>
+                <parameters>--from sensors/RealSense_conf_640x480.ini</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-torso1</node>
+        </module>
+        <module>
+                <name>yarpdev</name>
+                <parameters>--device faceDisplayServer</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-face</node>
+        </module>
+        <module>
+                <name>faceExpressionImage</name>
+                 <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+               <node>r1-base</node>
+        </module>
+        <module>
+                <name>yarpdev</name>
+                <parameters>--device speech --lingware-context speech --default-language en-GB --robot r1 --pitch 80 --speed 100</parameters>
+                 <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+               <node>r1-face</node>
+        </module>
+        <module>
+                <name>iSpeak</name>
+                <parameters>--package speech-dev</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-face</node>
+        </module>
+        <module>
+                <name>cer_gaze-controller</name>
+                <parameters>--cameras::context cameraCalibration --cameras::file cerEyes_640x480.ini --joints-limits::pitch "(-30.0 30.0)" --joints-limits::yaw "(-40.0 40.0)" --verbosity 1 --T 1.0</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <ensure>
+                    <wait when="stop">3</wait>
+                </ensure>
+                <node>r1-base</node>
+        </module>
+        <module>
+                <name>cer_reaching-solver</name>
+                <parameters>--arm-type left --verbosity 1</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-base</node>
+        </module>
+        <module>
+                <name>cer_reaching-solver</name>
+                <parameters>--arm-type right --verbosity 1</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-base</node>
+        </module>
+        <module>
+                <name>cer_reaching-controller</name>
+                <parameters>--arm-type left --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.002</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <ensure>
+                    <wait when="stop">3</wait>
+                </ensure>
+                <node>r1-base</node>
+        </module>
+        <module>
+                <name>cer_reaching-controller</name>
+                <parameters>--arm-type right --verbosity 1 --T 1.0 --stop-threshold-prismatic 0.002</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <ensure>
+                    <wait when="stop">3</wait>
+                </ensure>
+                <node>r1-base</node>
+        </module>
+        <module>
+                <name>action-gateway</name>
+                <parameters>--general::robot cer</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                    <port timeout="8">/cer_gaze-controller/rpc</port>
+                    <port timeout="8">/cer_reaching-controller/left/rpc</port>
+                    <port timeout="8">/cer_reaching-controller/right/rpc</port>
+                </dependencies>    
+                <ensure>
+                    <wait when="start">5</wait>
+                </ensure>    
+                <node>r1-console-linux</node>
+        </module>
+        <module>
+                <name>vision3d-gateway</name>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-linux</node>
+        </module>
+
+        <module>
+                <name>grasp-processor</name>
+                <parameters>--from config-r1-pseudo-points.ini</parameters>
+                <node>r1-console-linux</node>
+        </module>
+
+        <module>
+                <name>localize-superquadric</name>
+                <parameters>--random-sample 0.2 --remove-outliers "(0.01 10)" --analytic-gradient --force-vertical</parameters>
+                <node>r1-console-linux</node>
+        </module>
+
+        <module>
+                <name>point-cloud-read</name>
+                <node>r1-console-linux</node>
+        </module>
+
+        <module>
+                <name>caffeCoder</name>
+                <parameters>--from caffeCoder_resnet.ini</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-torso2</node>
+        </module>
+        <module>
+                <name>linearClassifierModule</name>
+                <parameters> --BufferSize 1 --CSVM 1.0 --databaseFolder IOLDatabase --WeightedSVM 1</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>himrepClassifier</name>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>blobSelector</name>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>iolStateMachineHandler</name>
+                <parameters>--context grasp-approach --from iol_manager.ini</parameters> -->
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-linux</node>
+        </module>
+        <module>
+                <name>iolReachingCalibration</name>
+                <parameters>--test-mode on</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-linux</node>
+        </module>
+        <module>
+                <name>objectsPropertiesCollector</name>
+                <parameters>--name memory --db memory_iol.ini</parameters>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-linux</node>
+        </module>
+        <module>
+                <name>iolHelper</name>
+                <dependencies>
+                    <port timeout="5">/yarplogger</port>
+                </dependencies>
+                <node>r1-console-linux</node>
+        </module>
+
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/disparity --x 0 --y 0 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/MaskRCNNSegmented --x 370 --y 0 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/snapshot --x 370 --y 720 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/pointedBlobs --x 0 --y 720 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/manager/tracker --x 0 --y 370 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/manager/localizer --x 370 --y 370 --out /iolViewer/manager/localizer/out --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+        <module>
+                <name>yarpview</name>
+                <parameters>--name /iolViewer/manager/histogram --x 680 --y 220 --w 600 --h 600 --p 50 --compact</parameters>
+                <node>r1-console-cuda</node>
+        </module>
+
+        <connection>
+                <from>/depthCamera/rgbImage:o</from>
+                <to>/iolStateMachineHandler/img:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+
+        <connection>
+                <from>/iolStateMachineHandler/imgClassifier:o</from>
+                <to>/himrepClassifier/img:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/depthCamera/rgbImage:o</from>
+                <to>/blobSelector/img:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+
+
+        <connection>
+                <from>/iolStateMachineHandler/classify:rpc</from>
+                <to>/himrepClassifier/rpc</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/depthCamera/depthImage:o</from>
+                <to>/iolViewer/disparity</to>
+                <protocol>udp+recv.portmonitor+type.dll+file.depthimage</protocol>
+        </connection>
+
+        <connection>
+                <from>/blobSelector/img:o</from>
+                <to>/iolViewer/pointedBlobs</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/img:o</from>
+                <to>/iolViewer/snapshot</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/imgTrack:o</from>
+                <to>/iolViewer/manager/tracker</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/imgLoc:o</from>
+                <to>/iolViewer/manager/localizer</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/imgHistogram:o</from>
+                <to>/iolViewer/manager/histogram</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolViewer/manager/localizer/out</from>
+                <to>/iolStateMachineHandler/histObjLocation:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/speak:o</from>
+                <to>/iSpeak</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/motor:rpc</from>
+                <to>/action-gateway/cmd:io</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/motor_stop:rpc</from>
+                <to>/action-gateway/motor_stop:rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/memory:rpc</from>
+                <to>/memory/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/opc/rpc</from>
+                <to>/memory/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/depth/rpc</from>
+                <to>/vision3d-gateway/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/depthCamera/rgbImage:o</from>
+                <to>/action-gateway/img:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/img:o</from>
+                <to>/iolViewer/snapshot</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/iolHelper/opc</from>
+                <to>/memory/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/blobSelector/point:o</from>
+                <to>/iolStateMachineHandler/point:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/himrepClassifier/img:o</from>
+                <to>/caffeCoder/img:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/caffeCoder/code:o</from>
+                <to>/himrepClassifier/features:i</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/himrepClassifier/features:o</from>
+                <to>/linearClassifier/features:i</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/linearClassifier/scores:o</from>
+                <to>/himrepClassifier/scores:i</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/himrepClassifier/classify:rpc</from>
+                <to>/linearClassifier/rpc</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/caffeCoder/img:o</from>1
+                <to>/himrepClassifier/SIFTimg:i</to>
+                <protocol>mjpeg</protocol>
+        </connection>
+        <connection>
+                <from>/himrepClassifier/opc</from>
+                <to>/memory/rpc</to>
+                <protocol>tcp</protocol>
+        </connection>
+        <connection>
+                <from>/vision3d-gateway/cam:rpc</from>
+                <to>/depthCamera/rpc:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/depthCamera/depthImage:o</from>
+                <to>/vision3d-gateway/depth:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/cer_gaze-controller/state:o</from>
+                <to>/vision3d-gateway/gaze/state:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/get3d:rpc</from>
+                <to>/vision3d-gateway/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/gaze/rpc</from>
+                <to>/cer_gaze-controller/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/cer_reaching-controller/left/solver:rpc</from>
+                <to>/cer_reaching-solver/left/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/cer_reaching-controller/right/solver:rpc</from>
+                <to>/cer_reaching-solver/right/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/reach/left/rpc</from>
+                <to>/cer_reaching-controller/left/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/action-gateway/reach/right/rpc</from>
+                <to>/cer_reaching-controller/right/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/faceExpressionImage/image:o</from> 
+                <to>/robot/faceDisplay/image:i</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iSpeak/speech-dev/rpc</from>
+                <to>/r1/speech:rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iSpeak/r1:rpc</from>
+                <to>/faceExpressionImage/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolReachingCalibration/opc</from>
+                <to>/memory/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/iolStateMachineHandler/reach_calib:rpc</from>
+                <to>/iolReachingCalibration/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/graspProcessor/pointCloud:rpc</from>
+                <to>/pointCloudRead/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/graspProcessor/actionRenderer:rpc</from>
+                <to>/action-gateway/cmd:io</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/graspProcessor/tableCalib:rpc</from>
+                <to>/action-gateway/cmd:io</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+                <from>/graspProcessor/reachingCalibration:rpc</from>
+                <to>/iolReachingCalibration/rpc</to>
+                <protocol>fast_tcp</protocol>
+        </connection>
+        <connection>
+              <from>/depthCamera/rgbImage:o</from>
+              <to>/pointCloudRead/imgL:i</to>
+              <protocol>mjpeg</protocol>
+      </connection>
+      <connection>
+              <from>/pointCloudRead/OPCrpc</from>
+              <to>/memory/rpc</to>
+              <protocol>fast_tcp</protocol>
+      </connection>
+
+      <connection>
+              <from>/iolStateMachineHandler/motor_grasp:rpc</from>
+              <to>/graspProcessor/cmd:rpc</to>
+              <protocol>fast_tcp</protocol>
+      </connection>
+
+    <connection>
+        <from>/graspProcessor/superquadricRetrieve:rpc</from>
+        <to>/localize-superquadric/service:rpc</to>
+        <protocol>fast_tcp</protocol>
+    </connection>
+
+  <connection>
+      <from>/pointCloudRead/SFMrpc</from>
+      <to>/vision3d-gateway/rpc</to>
+      <protocol>fast_tcp</protocol>
+  </connection>
+
+  <connection>
+        <from>/depthCamera/rgbImage:o</from>
+        <to>/instanceSegmenter/RGBimage:i</to>
+        <protocol>mjpeg</protocol>
+    </connection>
+
+    <connection>
+        <from>/instanceSegmenter/bboxes:o</from>
+        <to>/iolStateMachineHandler/blobs:i</to>
+        <protocol>fast_tcp</protocol>
+    </connection>
+
+    <connection>
+        <from>/instanceSegmenter/RGBimage:o</from>
+        <to>/iolViewer/MaskRCNNSegmented</to>
+        <protocol>mjpeg</protocol>
+    </connection>
+
+    <connection>
+        <from>/pointCloudRead/segmrpc</from>
+        <to>/instanceSegmenter/rpc</to>
+        <protocol>fast_tcp</protocol>
+    </connection>
+    
+    <connection>
+        <from>/localize-superquadric/opc:rpc</from>
+        <to>/memory/rpc</to>
+        <protocol>fast_tcp</protocol>
+    </connection>
+</application>

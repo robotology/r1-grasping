@@ -5,3 +5,4 @@
 add_subdirectory(vision3d-gateway)
 add_subdirectory(action-gateway)
 add_subdirectory(grasp-detector)
+add_subdirectory(grasp-approach)

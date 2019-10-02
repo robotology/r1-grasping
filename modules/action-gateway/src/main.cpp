@@ -37,6 +37,8 @@ class Gateway : public RFModule
     RpcClient gazePort;
     RpcClient reachLPort;
     RpcClient reachRPort;
+    RpcClient mobReachLPort;
+    RpcClient mobReachRPort;
     
     BufferedPort<Bottle> stopMotorsPort;
     class StopMotorsProcessor : public TypedReaderCallback<Bottle>,
@@ -658,6 +660,32 @@ class Gateway : public RFModule
     }
 
     /****************************************************************/
+    Bottle prepareMobileGraspingTargets(const Vector &pose, const Vector &approach, const Vector &noise=Vector(2,0.0)) const
+    {
+        Bottle target;
+        Bottle &target_info=target.addList();
+        target_info.addString("target");
+        Bottle &target_list=target_info.addList();
+
+        Vector approachPose = processApproach(pose, approach);
+        Vector liftPose = pose;
+        liftPose[2] += grasping.lift;
+
+        target_list.addList().read(approachPose);
+        target_list.addList().read(pose);
+        target_list.addList().read(liftPose);
+
+        Bottle &margin_info=target.addList();
+        margin_info.addString("marginG");
+        Vector noiseP(3, 0.0);
+        noiseP[0]=noise[0];
+        noiseP[1]=noise[0];
+        margin_info.addList().read(cat(noiseP, Vector(3,noise[1])));
+
+        return target;
+    }
+
+    /****************************************************************/
     bool reach(const Vector &pose, const string &part="select")
     {
         if (pose.length()<7)
@@ -708,6 +736,50 @@ class Gateway : public RFModule
             if (rep.get(0).asVocab()==ack)
             {
                 payLoad=rep.tail();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /****************************************************************/
+    bool askMobileGrasp(Bottle &payLoad, const Vector &pose, const Vector &approach, const string &part="select", const Vector &noise=Vector(2,0.0))
+    {
+        if (pose.length()<7)
+        {
+            yError()<<"Too few pose parameters given for mobile reaching";
+            return false;
+        }
+
+        if (part!="right" && part!="left")
+        {
+            yError()<<"Invalid part name given for mobile reaching (should be \"right\" or \"left\")";
+            return false;
+        }
+
+        RpcClient *port=&(part=="left"?mobReachLPort:mobReachRPort);
+
+        Bottle cmd,rep;
+        cmd.addVocab(Vocab::encode("askLocal"));
+        Bottle &cmd_info=cmd.addList();
+        cmd_info.append(prepareReachingParams());
+        cmd_info.append(prepareMobileGraspingTargets(pose, approach, noise));
+        if (port->write(cmd,rep))
+        {
+            yInfo()<<"cmd" << cmd.toString();
+            if (rep.get(0).asVocab()==ack)
+            {
+                yInfo()<< "rep" << rep.toString();
+                payLoad=rep.tail();
+                Bottle *joints=payLoad.find("q").asList();
+                Bottle j = *(joints->get(1).asList());
+                joints->clear();
+                joints->read(j);
+                Bottle *target=payLoad.find("x").asList();
+                Bottle t = *(target->get(1).asList());
+                target->clear();
+                target->read(t);
+                yInfo() << "rep fixed" << payLoad.toString();
                 return true;
             }
         }
@@ -1219,6 +1291,8 @@ class Gateway : public RFModule
         gazePort.open("/action-gateway/gaze/rpc");
         reachLPort.open("/action-gateway/reach/left/rpc");
         reachRPort.open("/action-gateway/reach/right/rpc");
+        mobReachLPort.open("/action-gateway/mobile-reach/left/rpc");
+        mobReachRPort.open("/action-gateway/mobile-reach/right/rpc");
         stopMotorsPort.open("/action-gateway/motor_stop:rpc");
         stopMotorsPort.setReplier(stopMotorsProcessor);
         
@@ -1398,6 +1472,44 @@ class Gateway : public RFModule
 
             ok=ask(payLoad,pose,part);
         }
+        else if ((cmd==Vocab::encode("askMobile")) && (command.size()>=3))
+        {
+            Vector pose;
+            if (Bottle *b1=command.get(1).asList())
+            {
+                for (size_t i=0; i<b1->size(); i++)
+                {
+                    pose.push_back(b1->get(i).asDouble());
+                }
+            }
+
+            Vector approach;
+            if (Bottle *b1=command.get(2).asList())
+            {
+                for (size_t i=0; i<b1->size(); i++)
+                {
+                    approach.push_back(b1->get(i).asDouble());
+                }
+            }
+
+            string part="select";
+            part=command.get(3).asString();
+
+            Vector noise(2,0.0);
+            if (command.size()>=4)
+            {
+                if (Bottle *b1=command.get(4).asList())
+                {
+                    if (b1->size() == 2)
+                    {
+                        noise[0] = b1->get(0).asDouble();
+                        noise[1] = b1->get(1).asDouble();
+                    }
+                }
+            }
+
+            ok=askMobileGrasp(payLoad,pose,approach,part,noise);
+        }
         else if (cmd==Vocab::encode("calibrate"))
         {
             if (command.size()>=2)
@@ -1468,6 +1580,14 @@ class Gateway : public RFModule
         if (reachRPort.asPort().isOpen())
         {
             reachRPort.close();
+        }
+        if (mobReachLPort.asPort().isOpen())
+        {
+            mobReachLPort.close();
+        }
+        if (mobReachRPort.asPort().isOpen())
+        {
+            mobReachRPort.close();
         }
         if (!stopMotorsPort.isClosed())
         {

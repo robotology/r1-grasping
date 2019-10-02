@@ -1,0 +1,236 @@
+<application>
+    <name>Demo mobile manipulation</name>
+
+    <dependencies>
+        <port>/depthCamera/rgbImage:o</port>
+        <port>/detectionExtract/rpc:i</port>
+    </dependencies>
+
+    <!-- Modules -->
+
+        <!-- Mobile reaching-->
+
+        <module>
+            <name>cer_mobile-reaching-solver</name>
+            <parameters>--robot cer --arm-type left --verbosity 1</parameters>
+            <dependencies>
+                <port>/cer/torso/rpc:i</port>
+                <port>/cer/torso/command:i</port>
+                <port>/cer/torso/stateExt:o</port>
+                <port>/cer/left_arm/rpc:i</port>
+                <port>/cer/left_arm/command:i</port>
+                <port>/cer/left_arm/stateExt:o</port>
+            </dependencies>
+            <node>r1-console-linux</node>
+        </module>
+
+        <module>
+            <name>cer_mobile-reaching-solver</name>
+            <parameters>--robot cer --arm-type right --verbosity 1</parameters>
+            <dependencies>
+                <port>/cer/torso/rpc:i</port>
+                <port>/cer/torso/command:i</port>
+                <port>/cer/torso/stateExt:o</port>
+                <port>/cer/right_arm/rpc:i</port>
+                <port>/cer/right_arm/command:i</port>
+                <port>/cer/right_arm/stateExt:o</port>
+            </dependencies>
+            <node>r1-console-linux</node>
+        </module>
+
+        <module>
+            <name>cer_mobile-reaching-controller</name>
+            <parameters>--robot cer --arm-type left --verbosity 1 --T 1.0</parameters>
+            <dependencies>
+                <port>/cer/torso_tripod/rpc:i</port>
+                <port>/cer/torso_tripod/command:i</port>
+                <port>/cer/torso_tripod/stateExt:o</port>
+                <port>/cer/torso/rpc:i</port>
+                <port>/cer/torso/command:i</port>
+                <port>/cer/torso/stateExt:o</port>
+                <port>/cer/left_arm/rpc:i</port>
+                <port>/cer/left_arm/command:i</port>
+                <port>/cer/left_arm/stateExt:o</port>
+                <port>/cer/left_wrist_tripod/rpc:i</port>
+                <port>/cer/left_wrist_tripod/command:i</port>
+                <port>/cer/left_wrist_tripod/stateExt:o</port>
+            </dependencies>
+            <ensure>
+                <wait when="stop">3</wait>
+            </ensure>
+            <node>r1-console-linux</node>
+        </module>
+
+        <module>
+            <name>cer_mobile-reaching-controller</name>
+            <parameters>--robot cer --arm-type right --verbosity 1 --T 1.0</parameters>
+            <dependencies>
+                <port>/cer/torso_tripod/rpc:i</port>
+                <port>/cer/torso_tripod/command:i</port>
+                <port>/cer/torso_tripod/stateExt:o</port>
+                <port>/cer/torso/rpc:i</port>
+                <port>/cer/torso/command:i</port>
+                <port>/cer/torso/stateExt:o</port>
+                <port>/cer/right_arm/rpc:i</port>
+                <port>/cer/right_arm/command:i</port>
+                <port>/cer/right_arm/stateExt:o</port>
+                <port>/cer/right_wrist_tripod/rpc:i</port>
+                <port>/cer/right_wrist_tripod/command:i</port>
+                <port>/cer/right_wrist_tripod/stateExt:o</port>
+            </dependencies>
+            <ensure>
+                <wait when="stop">3</wait>
+            </ensure>
+            <node>r1-console-linux</node>
+        </module>
+
+        <!-- Grasp processor AFAR -->
+
+        <module>
+            <name>grasp-processor</name>
+            <parameters>--name graspProcessorAfar --from config-r1-pseudo-points.ini</parameters>
+            <node>r1-console-linux</node>
+        </module>
+
+        <!-- Point cloud read AFAR -->
+
+        <module>
+            <name>point-cloud-read</name>
+            <parameters>--moduleName pointCloudReadAfar</parameters>
+            <node>r1-console-linux</node>
+        </module>
+
+        <!-- Glue module -->
+        
+        <module>
+            <name>grasp-approach</name>
+            <parameters></parameters>
+            <node>r1-console-linux</node>
+        </module>
+
+    <!-- Connections -->
+
+
+        <!-- Mobile reaching -->
+
+        <connection>
+            <from>/cer_mobile-reaching-controller/left/solver:rpc</from>
+            <to>/cer_mobile-reaching-solver/left/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/cer_mobile-reaching-controller/right/solver:rpc</from>
+            <to>/cer_mobile-reaching-solver/right/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/action-gateway/mobile-reach/left/rpc</from>
+            <to>/cer_mobile-reaching-controller/left/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/action-gateway/mobile-reach/right/rpc</from>
+            <to>/cer_mobile-reaching-controller/right/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <!-- Grasp processor AFAR -->
+
+        <connection>
+            <from>/graspProcessorAfar/superquadricRetrieve:rpc</from>
+            <to>/localize-superquadric/service:rpc</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/graspProcessorAfar/pointCloud:rpc</from>
+            <to>/pointCloudReadAfar/rpc</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/graspProcessorAfar/actionRenderer:rpc</from>
+            <to>/action-gateway/cmd:io</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/graspProcessorAfar/tableCalib:rpc</from>
+            <to>/action-gateway/cmd:io</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <!-- Point cloud read AFAR -->
+        
+        <connection>
+            <from>/depthCamera/rgbImage:o</from>
+            <to>/pointCloudReadAfar/imgL:i</to>
+            <protocol>mjpeg</protocol>
+        </connection>
+
+        <connection>
+            <from>/pointCloudReadAfar/OPCrpc</from>
+            <to>/memory/rpc</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/pointCloudReadAfar/SFMrpc</from>
+            <to>/vision3d-gateway/rpc</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/pointCloudReadAfar/segmrpc</from>
+            <to>/detectionExtract/rpc:i</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+        <!-- Glue code -->
+    
+        <connection>
+            <from>/grasp-approach/mobile-reaching/rpc:o</from>
+            <to>/cer_mobile-reaching-controller/right/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/grasp-approach/vision3d-gateway/rpc:o</from>
+            <to>/vision3d-gateway/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/grasp-approach/grasp-processor-AFAR/rpc:o</from>
+            <to>/graspProcessorAfar/cmd:rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/grasp-approach/grasp-processor-OPC/rpc:o</from>
+            <to>/graspProcessor/cmd:rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/grasp-approach/action-gateway/rpc:o</from>
+            <to>/action-gateway/cmd:io</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/grasp-approach/OPCdetection/rpc:o</from>
+            <to>/memory/rpc</to>
+            <protocol>tcp</protocol>
+        </connection>
+
+        <connection>
+            <from>/detection/dets:o</from>
+            <to>/grasp-approach/detection:i</to>
+            <protocol>fast_tcp</protocol>
+        </connection>
+
+</application>
