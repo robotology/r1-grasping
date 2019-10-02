@@ -11,6 +11,7 @@
  */
 
 #include <cstdlib>
+#include <mutex>
 #include <string>
 #include <yarp/os/all.h>
 #include <yarp/sig/all.h>
@@ -42,11 +43,11 @@ class Gateway : public RFModule
     double fov_x,fov_y;
     bool camera_fov_configured;
 
-    Mutex depthMutex;
+    mutex depthMutex;
     ImageOf<PixelFloat> depth;
     bool camera_resolution_configured;
 
-    Mutex HcamMutex;
+    mutex HcamMutex;
     Matrix Hcam;
 
     /****************************************************************/
@@ -344,7 +345,7 @@ class Gateway : public RFModule
             {
                 yInfo()<<"Warning received depth image dimensions do not match configuration";
             }
-            LockGuard lg(depthMutex);
+            lock_guard<mutex> lg(depthMutex);
             depth=*ptr;
             camera_resolution_configured=true;
         }
@@ -359,7 +360,7 @@ class Gateway : public RFModule
                     orientation[1]=pose->get(4).asDouble();
                     orientation[2]=pose->get(5).asDouble();
                     orientation[3]=pose->get(6).asDouble();
-                    LockGuard lg(HcamMutex);
+                    lock_guard<mutex> lg(HcamMutex);
                     Hcam=axis2dcm(orientation);
                     Hcam(0,3)=pose->get(0).asDouble();
                     Hcam(1,3)=pose->get(1).asDouble();
@@ -404,8 +405,8 @@ class Gateway : public RFModule
                 step=command.get(5).asInt();
             }
 
-            LockGuard lg(depthMutex);
-            LockGuard lg2(HcamMutex);
+            lock_guard<mutex> lg(depthMutex);
+            lock_guard<mutex> lg2(HcamMutex);
             for (int u=tlx; u<tlx+w; u+=step)
             {
                 for (int v=tly; v<tly+h; v+=step)
@@ -425,8 +426,8 @@ class Gateway : public RFModule
         }
         else if ((cmd=="Points") && (command.size()>=3))
         {
-            LockGuard lg(depthMutex);
-            LockGuard lg2(HcamMutex);
+            lock_guard<mutex> lg(depthMutex);
+            lock_guard<mutex> lg2(HcamMutex);
             for (int cnt=1; cnt<command.size()-1; cnt+=2)
             {
                 int u=command.get(cnt).asInt();
@@ -452,7 +453,7 @@ class Gateway : public RFModule
             p[2]=command.get(3).asDouble();
             p[3]=1.0;
 
-            LockGuard lg2(HcamMutex);
+            lock_guard<mutex> lg2(HcamMutex);
             p=yarp::math::SE3inv(Hcam)*p;
 
             Vector pImage=this->getPoint2D(p[0], p[1], p[2]);
