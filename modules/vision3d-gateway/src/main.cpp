@@ -351,7 +351,7 @@ class Gateway : public RFModule
         }
         if (Property *ptr=gazePort.read(false))
         {
-            if (Bottle *pose=ptr->find("depth").asList())
+            if (Bottle *pose=ptr->find("depth_rgb").asList())
             {
                 if (pose->size()>=7)
                 {

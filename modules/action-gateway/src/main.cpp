@@ -538,9 +538,9 @@ class Gateway : public RFModule
         target.addList().read(p);
 
         Property prop;
-        prop.put("control-frame","depth");
+        prop.put("control-frame","depth_rgb");
         prop.put("target-type","image");
-        prop.put("image","depth");
+        prop.put("image","depth_rgb");
         prop.put("target-location",target.get(0));
         return look(prop);
     }
