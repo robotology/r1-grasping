@@ -3,7 +3,7 @@
 # Authors: Ugo Pattacini <ugo.pattacini@iit.it>
 
 project(grasp-detector)
-find_package(YARP 3.1.0 REQUIRED COMPONENTS OS sig math dev)
+find_package(YARP 3.3.0 REQUIRED COMPONENTS os sig math dev)
 
 yarp_add_idl(${PROJECT_NAME}_THRIFT_SRC src/idl.thrift)
 

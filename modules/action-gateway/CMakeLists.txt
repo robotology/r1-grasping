@@ -3,7 +3,7 @@
 # Authors: Ugo Pattacini <ugo.pattacini@iit.it>
 
 project(action-gateway)
-find_package(YARP 3.1.0 REQUIRED COMPONENTS OS dev sig math)
+find_package(YARP 3.3.0 REQUIRED COMPONENTS os dev sig math)
 
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_compile_definitions(${PROJECT_NAME} PRIVATE _USE_MATH_DEFINES)
